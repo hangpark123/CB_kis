@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CB 뉴스/공시 대시보드</title>
+
+  <!-- Chart.js (차단돼도 다른 기능엔 영향 없음) -->
+  <script>
+    (function(){
+      const s = document.createElement('script');
+      s.src = "https://cdn.jsdelivr.net/npm/chart.js";
+      s.async = true;
+      s.onerror = () => console.warn('Chart.js blocked, stats disabled.');
+      document.head.appendChild(s);
+    })();
+  </script>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .live-dot{ width:10px; height:10px; border-radius:9999px; display:inline-block; margin-right:6px }
+    .live-on{  background:#22c55e; box-shadow:0 0 0 0 rgba(34,197,94,.7); animation:pulse 1.5s infinite }
+    .live-off{ background:#ef4444 }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.7)} 70%{box-shadow:0 0 0 8px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100">
+  <div class="max-w-7xl mx-auto p-6 space-y-6">
+    <!-- Header -->
+    <header class="flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold">CB 뉴스/공시 대시보드</h1>
+        <p class="text-slate-400 text-sm">Live Ticker = 공시 · Top = 실시간 뉴스</p>
+        <p class="text-xs text-slate-500" id="bootStatus">로딩 중...</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2">
+          <input id="autoRefresh" type="checkbox" class="h-4 w-4" checked />
+          <span class="text-sm text-slate-300">자동 새로고침</span>
+        </label>
+        <select id="refreshSec" class="bg-slate-800 text-slate-100 rounded px-2 py-1 text-sm">
+          <option value="30" selected>30초</option>
+          <option value="60">60초</option>
+        </select>
+        <button id="manualRefresh" class="bg-indigo-600 hover:bg-indigo-500 rounded px-3 py-1 text-sm">지금 새로고침</button>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Left: Top (뉴스 실시간) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 lg:col-span-2">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <h2 class="font-semibold flex items-center gap-2">
+              <span id="newsDot" class="live-dot live-off"></span>Top (뉴스 실시간)
+            </h2>
+            <input id="newsQ" placeholder="키워드(쉼표)" class="bg-slate-800 rounded px-2 py-1 text-sm w-64" value="전환사채,리픽싱" />
+            <label class="text-sm flex items-center gap-2">
+              <input id="newsLive" type="checkbox" class="h-4 w-4" checked />실시간
+            </label>
+            <button id="newsApply" class="bg-slate-800 hover:bg-slate-700 rounded px-2 py-1 text-sm">적용</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="typeFilter" class="bg-slate-800 rounded px-2 py-1 text-sm">
+              <option value="">전체 유형</option>
+              <option>REFIX</option>
+              <option>CONVERSION</option>
+              <option>ISSUE</option>
+              <option>REDEMPTION</option>
+              <option>OTHER</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="topTable">
+            <thead class="text-slate-300">
+              <tr class="border-b border-slate-800">
+                <th class="text-left py-2 pr-3">시간</th>
+                <th class="text-left py-2 pr-3">유형</th>
+                <th class="text-left py-2 pr-3">회사/코드</th>
+                <th class="text-left py-2">제목</th>
+              </tr>
+            </thead>
+            <tbody id="topBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right: Live Ticker (공시) + Chart -->
+      <div class="space-y-6">
+        <!-- Live Ticker -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-3">
+              <h2 class="font-semibold flex items-center gap-2">
+                <span class="live-dot live-off" id="liveDot"></span>Live Ticker (공시)
+              </h2>
+              <select id="dartScope" class="bg-slate-800 rounded px-2 py-1 text-sm">
+                <option value="cb" selected>CB 관련만</option>
+                <option value="all">모든 공시</option>
+              </select>
+            </div>
+            <div id="liveStat" class="text-xs text-slate-400">대기 중</div>
+          </div>
+          <!-- 고정 높이 + 세로 스크롤 -->
+          <div id="liveList" class="space-y-2 h-[55vh] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- 24h by-type -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+          <h2 class="font-semibold mb-3">24시간 유형 분포</h2>
+          <canvas id="byTypeChart" height="240"></canvas>
+          <p id="lastUpdated" class="text-xs text-slate-400 mt-2"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /* ---------- helpers ---------- */
+    const badge = (t) => {
+      const cls = {
+        "REFIX":"bg-amber-500/20 text-amber-300",
+        "CONVERSION":"bg-emerald-500/20 text-emerald-300",
+        "ISSUE":"bg-sky-500/20 text-sky-300",
+        "REDEMPTION":"bg-rose-500/20 text-rose-300",
+        "OTHER":"bg-slate-700 text-slate-300"
+      }[t] || "bg-slate-700 text-slate-300";
+      return `<span class="px-2 py-0.5 rounded text-xs ${cls}">${t||'OTHER'}</span>`;
+    };
+    const boot = document.getElementById('bootStatus');
+
+    function showToast(msg){
+      const t = document.createElement('div');
+      t.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-800 text-slate-100 px-3 py-2 rounded shadow border border-slate-700 text-sm';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 2500);
+    }
+
+    /* ---------- Live Ticker (공시) ---------- */
+    (function initDartTicker(){
+      const liveList  = document.getElementById('liveList');
+      const liveDot   = document.getElementById('liveDot');
+      const liveStat  = document.getElementById('liveStat');
+      const scopeSel  = document.getElementById('dartScope');
+      let es = null;
+      let seen = new Set();
+
+      const render = (x) => {
+        const t = x.time ? new Date(x.time).toLocaleTimeString() : '';
+        const code = x.stock_code ? ` (${x.stock_code})` : '';
+        const link = x.rcp_no ? ('/go/dart/' + x.rcp_no) : (x.url || '#');
+        const d = document.createElement('div');
+        d.className = 'border border-slate-800 rounded p-2 whitespace-normal break-words';
+        d.innerHTML =
+          `<div class="text-xs text-slate-400">${t} · ${x.corp||'-'}${code}</div>
+           <div class="text-sm">${x.headline||''} · <a class="underline text-indigo-300" target="_blank" rel="noopener noreferrer" href="${link}">공시</a></div>`;
+        return d;
+      };
+
+      async function prefill(){
+        try{
+          const scope = scopeSel.value;
+          // 48시간/20건으로 초기 채움
+          const res = await fetch(`/api/live/dart?scope=${scope}&minutes=2880&limit=20`);
+          if(!res.ok) throw new Error('prefill ' + res.status);
+          const arr = await res.json();
+          arr.reverse().forEach(x=>{
+            const key = (x.url||'')+'|'+(x.time||'');
+            if (seen.has(key)) return; seen.add(key);
+            liveList.appendChild(render(x));
+          });
+          if(arr.length===0) showToast('최근 48시간 공시 없음(현재 스코프)');
+        }catch(e){ console.warn('prefill dart failed', e); showToast('공시 프리필 실패'); }
+      }
+
+      function cleanupES(){
+        if (es) { try { es.close(); } catch(_){} es = null; }
+      }
+
+      function connect(){
+        cleanupES();
+        liveList.innerHTML = '';
+        seen = new Set();
+        prefill();
+
+        const scope = scopeSel.value;
+        es = new EventSource(`/api/live/dart/stream?scope=${scope}&interval=8&minutes=120`);
+        es.onopen  = () => { liveDot.className='live-dot live-on'; liveStat.textContent='연결됨'; boot.textContent='실시간 공시 연결 OK'; };
+        es.onerror = () => { liveDot.className='live-dot live-off'; liveStat.textContent='오류/재시도 중'; };
+        es.onmessage = (e) => {
+          try{
+            const x = JSON.parse(e.data);
+            const key = (x.url||'')+'|'+(x.time||'');
+            if (seen.has(key)) return; seen.add(key);
+            liveList.prepend(render(x));
+            if (liveList.childElementCount > 200) {
+              liveList.removeChild(liveList.lastElementChild);
+            }
+          }catch{}
+        };
+      }
+
+      scopeSel.addEventListener('change', connect);
+      connect(); // boot
+    })();
+
+    /* ---------- Top (뉴스 실시간) ---------- */
+    (function initNewsTop(){
+      const topBody   = document.getElementById('topBody');
+      const newsQ     = document.getElementById('newsQ');
+      const newsLive  = document.getElementById('newsLive');
+      const newsApply = document.getElementById('newsApply');
+      const typeFilter= document.getElementById('typeFilter');
+      const newsDot   = document.getElementById('newsDot');
+
+      const renderRow = (x) => {
+        const corp = `${x.corp || '-'}${x.stock_code ? ' ('+x.stock_code+')' : ''}`;
+        const url  = x.url ? `<a class="text-indigo-300 underline" href="${x.url}" target="_blank" rel="noopener noreferrer">기사</a>` : '';
+        const t    = x.time ? new Date(x.time).toLocaleTimeString() : '';
+        const tr   = document.createElement('tr');
+        tr.className = 'border-b border-slate-800/60 hover:bg-slate-800/30';
+        tr.innerHTML =
+          `<td class="py-2 pr-3 align-top whitespace-nowrap">${t}</td>
+           <td class="py-2 pr-3 align-top">${badge(x.type)}</td>
+           <td class="py-2 pr-3 align-top">${corp}</td>
+           <td class="py-2 align-top">${x.headline || ''} ${url ? ' · ' + url : ''}</td>`;
+        return tr;
+      };
+
+      let es = null;
+      let seen = new Set();
+      let hbTimer = null;
+      let lastMsg = 0;
+
+      function buildNewsParams(){
+        const hasQ = (newsQ.value||'').trim().length>0;
+        const mode = hasQ ? 'all' : 'cb';   // 키워드가 있으면 all, 없으면 cb
+        const q    = hasQ ? ('&q='+encodeURIComponent(newsQ.value)) : '';
+        return { hasQ, mode, q };
+      }
+
+      async function loadOnce(){
+        try{
+          const { mode, q } = buildNewsParams();
+          const res = await fetch('/api/live/news?minutes=180&mode='+mode+q);
+          if(!res.ok) throw new Error('news load ' + res.status);
+          const data = await res.json();
+          topBody.innerHTML = '';
+          data.forEach(x => { if (!typeFilter.value || x.type===typeFilter.value) topBody.insertAdjacentElement('beforeend', renderRow(x)); });
+          if (data.length===0) showToast('뉴스 결과 없음 (키워드/모드 확인)');
+        }catch(e){ console.warn('news load error', e); showToast('뉴스 로드 실패'); }
+      }
+
+      function cleanupES(){
+        if (es) { try { es.close(); } catch(_){} es = null; }
+        if (hbTimer) { clearInterval(hbTimer); hbTimer = null; }
+        newsDot.className = 'live-dot live-off';
+      }
+
+      function attachES(){
+        cleanupES();
+        topBody.innerHTML = '';
+        seen = new Set();
+
+        // 프리필 1회
+        loadOnce();
+
+        const { mode, q } = buildNewsParams();
+        es = new EventSource('/api/live/stream?interval=8&minutes=180&mode='+mode+q);
+
+        es.onopen = () => {
+          newsDot.className = 'live-dot live-on';
+          lastMsg = Date.now();
+          // 10초마다 체크, 25초 이상 메시지 없으면 폴백 fetch
+          hbTimer = setInterval(() => {
+            if (Date.now() - lastMsg > 25000) {
+              loadOnce();
+              lastMsg = Date.now();
+            }
+          }, 10000);
+        };
+
+        es.onmessage = (e) => {
+          try{
+            const x = JSON.parse(e.data);
+            if (typeFilter.value && x.type !== typeFilter.value) return;
+            const key = (x.url||'') + '|' + (x.time||'');
+            if (seen.has(key)) return; seen.add(key);
+            topBody.prepend(renderRow(x));
+            if (topBody.childElementCount > 200) {
+              topBody.removeChild(topBody.lastElementChild);
+            }
+            lastMsg = Date.now();
+          }catch{}
+        };
+
+        es.onerror = () => {
+          newsDot.className = 'live-dot live-off';
+          // 브라우저가 자동 재연결, 폴백은 타이머가 담당
+        };
+      }
+
+      newsApply.addEventListener('click', () => {
+        if (newsLive.checked) attachES();
+        else { cleanupES(); loadOnce(); }
+      });
+
+      // 탭 전환 시 연결 관리(모바일 절전/포커스 이탈 대비)
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) cleanupES();
+        else if (newsLive.checked) attachES();
+      });
+
+      // 시작
+      if (newsLive.checked) attachES(); else loadOnce();
+    })();
+
+    /* ---------- Stats chart (optional) ---------- */
+    (function initStats(){
+      let chart;
+      async function loadStats(){
+        try{
+          const res = await fetch('/api/stats/by_type?hours=24');
+          const data = await res.json();
+          if (typeof Chart === 'undefined') return; // CDN 차단 시 스킵
+          const labels = Object.keys(data);
+          const values = Object.values(data);
+          const ctx = document.getElementById('byTypeChart');
+          if (chart) chart.destroy();
+          chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: '건수', data: values }] },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+          });
+          document.getElementById('lastUpdated').textContent = '업데이트: ' + new Date().toLocaleTimeString();
+        }catch(e){ console.warn('stats error', e); }
+      }
+
+      let timer;
+      function reschedule(){
+        if (timer) clearInterval(timer);
+        const enabled = document.getElementById('autoRefresh').checked;
+        const sec = parseInt(document.getElementById('refreshSec').value, 10);
+        if (enabled) timer = setInterval(loadStats, sec*1000);
+      }
+
+      document.getElementById('autoRefresh').addEventListener('change', reschedule);
+      document.getElementById('refreshSec').addEventListener('change', reschedule);
+      document.getElementById('manualRefresh').addEventListener('click', loadStats);
+
+      loadStats();
+      reschedule();
+    })();
+  </script>
+</body>
+</html>

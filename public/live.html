@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CB 실시간 스트림</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100">
+  <div class="max-w-5xl mx-auto p-6 space-y-4">
+    <h1 class="text-2xl font-bold">CB 실시간 스트림</h1>
+    <div class="flex gap-2 items-center">
+      <input id="q" class="bg-slate-800 rounded px-2 py-1 w-96" placeholder="검색어(쉼표 구분, 비우면 .env 설정 사용)" />
+      <input id="minutes" type="number" value="60" class="bg-slate-800 rounded px-2 py-1 w-24" />
+      <input id="interval" type="number" value="10" class="bg-slate-800 rounded px-2 py-1 w-24" />
+      <button id="start" class="bg-indigo-600 px-3 py-1 rounded">시작</button>
+      <button id="stop" class="bg-slate-700 px-3 py-1 rounded">중지</button>
+    </div>
+    <div id="log" class="text-sm space-y-2 flex flex-col-reverse"></div>
+  </div>
+
+  <script>
+    // flex-col-reverse 로 최신이 맨 위에 보이지만, 안전하게 prepend도 수행
+    let es;
+    const logEl = document.getElementById('log');
+    const makeCard = (x) => {
+      const time = x.time ? new Date(x.time).toLocaleString() : '';
+      const code = x.stock_code ? ` (${x.stock_code})` : '';
+      const corp = x.corp ? x.corp + code : '-';
+      const badge = (t) => {
+        const cls = {
+          "REFIX":"bg-amber-500/20 text-amber-300",
+          "CONVERSION":"bg-emerald-500/20 text-emerald-300",
+          "ISSUE":"bg-sky-500/20 text-sky-300",
+          "REDEMPTION":"bg-rose-500/20 text-rose-300",
+          "OTHER":"bg-slate-700 text-slate-300"
+        }[t] || "bg-slate-700 text-slate-300";
+        return `<span class="px-2 py-0.5 rounded text-xs ${cls}">${t||'OTHER'}</span>`;
+      };
+      const d = document.createElement('div');
+      d.className = "border border-slate-800 rounded p-2";
+      d.innerHTML = `
+        <div class="text-xs text-slate-400">${time} · ${badge(x.type)} · ${corp} ·
+          <a class="underline text-indigo-300" href="${x.url}" target="_blank" rel="noopener">기사</a></div>
+        <div class="font-medium">${x.headline || ''}</div>
+        <div class="text-slate-300">${x.summary || ''}</div>
+      `;
+      return d;
+    };
+    const start = () => {
+      if (es) es.close();
+      const q = encodeURIComponent(document.getElementById('q').value || '');
+      const m = document.getElementById('minutes').value || 60;
+      const i = document.getElementById('interval').value || 10;
+      const url = '/api/live/stream?minutes=' + m + '&interval=' + i + '&map=1' + (q? ('&q='+q) : '');
+      es = new EventSource(url);
+      es.onmessage = (e) => {
+        try {
+          const x = JSON.parse(e.data);
+          const card = makeCard(x);
+          logEl.prepend(card); // ✅ 최신 위로
+        } catch {}
+      };
+      es.onerror = () => { console.warn('SSE error'); };
+    };
+    document.getElementById('start').onclick = start;
+    document.getElementById('stop').onclick = () => { if (es) es.close(); };
+  </script>
+</body>
+</html>

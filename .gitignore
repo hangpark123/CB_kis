@@ -1,0 +1,14 @@
+# virtualenv / 캐시
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# 비밀/로컬 데이터
+.env
+*.db
+data/*.csv
+
+
