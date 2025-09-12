@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CB 뉴스/공시 대시보드</title>
 
-  <!-- Chart.js (차단돼도 다른 기능엔 영향 없음) -->
+  <!-- Chart.js (통계 차트는 CDN이 막혀도 다른 기능에 영향 없음) -->
   <script>
     (function(){
       const s = document.createElement('script');
@@ -24,6 +24,10 @@
     .live-on{  background:#22c55e; box-shadow:0 0 0 0 rgba(34,197,94,.7); animation:pulse 1.5s infinite }
     .live-off{ background:#ef4444 }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.7)} 70%{box-shadow:0 0 0 8px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
+
+    /* 스크롤바 살짝 얇게 */
+    #liveList::-webkit-scrollbar{ width: 8px; }
+    #liveList::-webkit-scrollbar-thumb{ background:#1f2937; border-radius:8px; }
   </style>
 </head>
 
@@ -121,7 +125,18 @@
   </div>
 
   <script>
-    /* ---------- helpers ---------- */
+    /* ---------- 공용 포맷터 ---------- */
+    // MM-DD
+    function fmtMMDD(d){
+      const pad = n => String(n).padStart(2,'0');
+      return `${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+    // MM-DD HH:MM
+    function fmtMMDD_HHMM(d){
+      const pad = n => String(n).padStart(2,'0');
+      return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
     const badge = (t) => {
       const cls = {
         "REFIX":"bg-amber-500/20 text-amber-300",
@@ -142,6 +157,58 @@
       setTimeout(()=>t.remove(), 2500);
     }
 
+    /* ---------- DART field helpers ---------- */
+    function dartReceiptNo(x){
+      // rcp_no, rcpno, rcept_no, raw.rcpno 등 다양한 경우 대응
+      const r = x.rcp_no || x.rcpno || x.rcept_no || (x.raw && (x.raw.rcpno || x.raw.rcept_no)) || null;
+      return r ? String(r) : null;
+    }
+    function dartUrl(x){
+      const r = dartReceiptNo(x);
+      if (r) return '/go/dart/' + r;   // 백엔드 프록시 경유(403 회피)
+      return x.url || null;
+    }
+    // 날짜/시간 파싱 + 표기
+    // - 시간까지 있으면  "MM-DD HH:MM"
+    // - 날짜만 있으면    "MM-DD"  (00:00 표시 안 함)
+    function dartTimeInfo(x){
+      const raw = x.raw || {};
+      let source = x.time || x.published_at || x.inserted_at || raw.rcept_dt || raw.rcp_dt || '';
+      if (!source) return { iso:'', display:'' };
+
+      // YYYYMMDD (날짜만)
+      if (/^\d{8}$/.test(source)) {
+        const y = source.slice(0,4), m = source.slice(4,6), d = source.slice(6,8);
+        const iso = `${y}-${m}-${d}T00:00:00`;  // 정렬용 내부 ISO
+        const dt  = new Date(iso);
+        return { iso, display: fmtMMDD(dt) };
+      }
+      // YYYY-MM-DD (날짜만)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(source)) {
+        const iso = `${source}T00:00:00`;
+        const dt  = new Date(iso);
+        return { iso, display: fmtMMDD(dt) };
+      }
+      // 시간 포함
+      const dt = new Date(source);
+      if (!isNaN(dt.getTime())) {
+        return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
+      }
+      return { iso:'', display:'' };
+    }
+    function dartKey(x, idx=0){
+      // 접수번호 → url → 헤드라인+시간 → 인덱스 폴백
+      const r = dartReceiptNo(x);
+      if (r) return `rcp:${r}`;
+      const u = x.url || (x.raw && x.raw.url);
+      const t = dartTimeInfo(x).iso;
+      if (u && t) return `u:${u}|t:${t}`;
+      if (u) return `u:${u}|i:${idx}`;
+      const h = x.headline || (x.raw && (x.raw.report_nm || x.raw.rpt_nm));
+      if (h && t) return `h:${h}|t:${t}`;
+      return `idx:${idx}`;
+    }
+
     /* ---------- Live Ticker (공시) ---------- */
     (function initDartTicker(){
       const liveList  = document.getElementById('liveList');
@@ -152,31 +219,57 @@
       let seen = new Set();
 
       const render = (x) => {
-        const t = x.time ? new Date(x.time).toLocaleTimeString() : '';
+        const info = dartTimeInfo(x);
+        const t = info.display;
         const code = x.stock_code ? ` (${x.stock_code})` : '';
-        const link = x.rcp_no ? ('/go/dart/' + x.rcp_no) : (x.url || '#');
+        const link = dartUrl(x) || '#';
+        const corp = x.corp || (x.raw && (x.raw.corp_name || x.raw.corp || '')) || '-';
         const d = document.createElement('div');
         d.className = 'border border-slate-800 rounded p-2 whitespace-normal break-words';
         d.innerHTML =
-          `<div class="text-xs text-slate-400">${t} · ${x.corp||'-'}${code}</div>
-           <div class="text-sm">${x.headline||''} · <a class="underline text-indigo-300" target="_blank" rel="noopener noreferrer" href="${link}">공시</a></div>`;
+          `<div class="text-xs text-slate-400">${t} · ${corp}${code}</div>
+           <div class="text-sm">${x.headline || (x.raw && (x.raw.report_nm || x.raw.rpt_nm)) || ''} · <a class="underline text-indigo-300" target="_blank" rel="noopener noreferrer" href="${link}">공시</a></div>`;
         return d;
       };
 
-      async function prefill(){
-        try{
-          const scope = scopeSel.value;
-          // 48시간/20건으로 초기 채움
-          const res = await fetch(`/api/live/dart?scope=${scope}&minutes=2880&limit=20`);
-          if(!res.ok) throw new Error('prefill ' + res.status);
-          const arr = await res.json();
-          arr.reverse().forEach(x=>{
-            const key = (x.url||'')+'|'+(x.time||'');
-            if (seen.has(key)) return; seen.add(key);
-            liveList.appendChild(render(x));
-          });
-          if(arr.length===0) showToast('최근 48시간 공시 없음(현재 스코프)');
-        }catch(e){ console.warn('prefill dart failed', e); showToast('공시 프리필 실패'); }
+      // 프리필: 2일 → 3일 → 7일로 늘려가며 최대 target(20)까지 채움
+      async function prefill(target = 20) {
+        liveList.innerHTML = '';
+        seen = new Set();
+
+        const scope = scopeSel.value;
+        const minuteBuckets = [2880, 4320, 10080];   // 2d, 3d, 7d
+        let added = 0;
+
+        for (const minutes of minuteBuckets) {
+          try {
+            const res = await fetch(`/api/live/dart?scope=${scope}&minutes=${minutes}&limit=${target}`);
+            if (!res.ok) throw new Error('prefill ' + res.status);
+            const arr = await res.json();
+            // 오래된 것부터 붙여서 최신이 위로
+            arr.sort((a,b) => dartTimeInfo(a).iso.localeCompare(dartTimeInfo(b).iso));
+            arr.forEach((x, i) => {
+              if (added >= target) return;
+              const key = dartKey(x, i);
+              if (seen.has(key)) return;
+              seen.add(key);
+              liveList.appendChild(render(x));
+              added++;
+            });
+          } catch(e) {
+            console.warn('prefill dart failed', e);
+          }
+          if (added >= target) break;
+        }
+
+        if (added === 0) {
+          const hint = (scope === 'cb') ? ' (스코프를 "모든 공시"로 바꿔보세요)' : '';
+          const d = document.createElement('div');
+          d.id = 'noPrefill';
+          d.className = 'text-sm text-slate-400';
+          d.textContent = `프리필 결과가 없습니다${hint}.`;
+          liveList.appendChild(d);
+        }
       }
 
       function cleanupES(){
@@ -185,9 +278,7 @@
 
       function connect(){
         cleanupES();
-        liveList.innerHTML = '';
-        seen = new Set();
-        prefill();
+        prefill(20);  // 먼저 20건 채움
 
         const scope = scopeSel.value;
         es = new EventSource(`/api/live/dart/stream?scope=${scope}&interval=8&minutes=120`);
@@ -196,9 +287,12 @@
         es.onmessage = (e) => {
           try{
             const x = JSON.parse(e.data);
-            const key = (x.url||'')+'|'+(x.time||'');
-            if (seen.has(key)) return; seen.add(key);
-            liveList.prepend(render(x));
+            const key = dartKey(x);
+            if (seen.has(key)) return;
+            seen.add(key);
+            const no = document.getElementById('noPrefill');
+            if (no) no.remove();          // 안내문 제거
+            liveList.prepend(render(x));  // 최신은 위로
             if (liveList.childElementCount > 200) {
               liveList.removeChild(liveList.lastElementChild);
             }
@@ -222,7 +316,7 @@
       const renderRow = (x) => {
         const corp = `${x.corp || '-'}${x.stock_code ? ' ('+x.stock_code+')' : ''}`;
         const url  = x.url ? `<a class="text-indigo-300 underline" href="${x.url}" target="_blank" rel="noopener noreferrer">기사</a>` : '';
-        const t    = x.time ? new Date(x.time).toLocaleTimeString() : '';
+        const t    = x.time ? fmtMMDD_HHMM(new Date(x.time)) : '';
         const tr   = document.createElement('tr');
         tr.className = 'border-b border-slate-800/60 hover:bg-slate-800/30';
         tr.innerHTML =
@@ -277,7 +371,7 @@
         es.onopen = () => {
           newsDot.className = 'live-dot live-on';
           lastMsg = Date.now();
-          // 10초마다 체크, 25초 이상 메시지 없으면 폴백 fetch
+          // 10초마다 체크, 25초 이상 무소식이면 폴백 fetch
           hbTimer = setInterval(() => {
             if (Date.now() - lastMsg > 25000) {
               loadOnce();
@@ -302,7 +396,6 @@
 
         es.onerror = () => {
           newsDot.className = 'live-dot live-off';
-          // 브라우저가 자동 재연결, 폴백은 타이머가 담당
         };
       }
 
@@ -311,7 +404,7 @@
         else { cleanupES(); loadOnce(); }
       });
 
-      // 탭 전환 시 연결 관리(모바일 절전/포커스 이탈 대비)
+      // 탭 전환 시 연결 관리
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) cleanupES();
         else if (newsLive.checked) attachES();
