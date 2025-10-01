@@ -176,26 +176,50 @@
       let source = x.time || x.published_at || x.inserted_at || raw.rcept_dt || raw.rcp_dt || '';
       if (!source) return { iso:'', display:'' };
 
-      // YYYYMMDD (날짜만)
       if (/^\d{8}$/.test(source)) {
         const y = source.slice(0,4), m = source.slice(4,6), d = source.slice(6,8);
-        const iso = `${y}-${m}-${d}T00:00:00`;  // 정렬용 내부 ISO
+        const iso = `${y}-${m}-${d}T00:00:00+09:00`;
         const dt  = new Date(iso);
-        return { iso, display: fmtMMDD(dt) };
+        if (!Number.isNaN(dt.getTime())) {
+          return { iso: dt.toISOString(), display: fmtMMDD(dt) };
+        }
       }
-      // YYYY-MM-DD (날짜만)
+
       if (/^\d{4}-\d{2}-\d{2}$/.test(source)) {
-        const iso = `${source}T00:00:00`;
+        const iso = `${source}T00:00:00+09:00`;
         const dt  = new Date(iso);
-        return { iso, display: fmtMMDD(dt) };
+        if (!Number.isNaN(dt.getTime())) {
+          return { iso: dt.toISOString(), display: fmtMMDD(dt) };
+        }
       }
-      // 시간 포함
-      const dt = new Date(source);
-      if (!isNaN(dt.getTime())) {
-        return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
+
+      const m14 = source.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+      if (m14) {
+        const [, y, m, d, hh, mm, ss] = m14;
+        const iso = `${y}-${m}-${d}T${hh}:${mm}:${ss}+09:00`;
+        const dt = new Date(iso);
+        if (!Number.isNaN(dt.getTime())) {
+          return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
+        }
+      }
+
+      const m12 = source.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+      if (m12) {
+        const [, y, m, d, hh, mm] = m12;
+        const iso = `${y}-${m}-${d}T${hh}:${mm}:00+09:00`;
+        const dt = new Date(iso);
+        if (!Number.isNaN(dt.getTime())) {
+          return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
+        }
+      }
+
+      const parsed = new Date(source);
+      if (!Number.isNaN(parsed.getTime())) {
+        return { iso: parsed.toISOString(), display: fmtMMDD_HHMM(parsed) };
       }
       return { iso:'', display:'' };
     }
+
     function dartKey(x, idx=0){
       // 접수번호 → url → 헤드라인+시간 → 인덱스 폴백
       const r = dartReceiptNo(x);
@@ -313,17 +337,46 @@
       const typeFilter= document.getElementById('typeFilter');
       const newsDot   = document.getElementById('newsDot');
 
+      const insertSorted = (row) => {
+        const ts = Number(row.dataset.ts);
+        if (!Number.isFinite(ts)) {
+          topBody.appendChild(row);
+          return;
+        }
+        let inserted = false;
+        for (const child of topBody.children) {
+          const childTs = Number(child.dataset.ts);
+          if (!Number.isFinite(childTs) || childTs < ts) {
+            topBody.insertBefore(row, child);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted) topBody.appendChild(row);
+      };
+
       const renderRow = (x) => {
-        const corp = `${x.corp || '-'}${x.stock_code ? ' ('+x.stock_code+')' : ''}`;
-        const url  = x.url ? `<a class="text-indigo-300 underline" href="${x.url}" target="_blank" rel="noopener noreferrer">기사</a>` : '';
-        const t    = x.time ? fmtMMDD_HHMM(new Date(x.time)) : '';
-        const tr   = document.createElement('tr');
+        const corp = `${x.corp || '-'}${x.stock_code ? ' (' + x.stock_code + ')' : ''}`;
+        const url  = x.url
+          ? `<a class="text-indigo-300 underline" href="${x.url}" target="_blank" rel="noopener noreferrer">기사</a>`
+          : '';
+        let ts = NaN;
+        let t = '';
+        if (x.time) {
+          const dt = new Date(x.time);
+          if (!Number.isNaN(dt.getTime())) {
+            ts = dt.getTime();
+            t = fmtMMDD_HHMM(dt);
+          }
+        }
+        const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-800/60 hover:bg-slate-800/30';
+        if (!Number.isNaN(ts)) tr.dataset.ts = String(ts);
         tr.innerHTML =
           `<td class="py-2 pr-3 align-top whitespace-nowrap">${t}</td>
            <td class="py-2 pr-3 align-top">${badge(x.type)}</td>
            <td class="py-2 pr-3 align-top">${corp}</td>
-           <td class="py-2 align-top">${x.headline || ''} ${url ? ' · ' + url : ''}</td>`;
+           <td class="py-2 align-top">${x.headline || ''}${url ? ' · ' + url : ''}</td>`;
         return tr;
       };
 
@@ -346,9 +399,16 @@
           if(!res.ok) throw new Error('news load ' + res.status);
           const data = await res.json();
           topBody.innerHTML = '';
-          data.forEach(x => { if (!typeFilter.value || x.type===typeFilter.value) topBody.insertAdjacentElement('beforeend', renderRow(x)); });
-          if (data.length===0) showToast('뉴스 결과 없음 (키워드/모드 확인)');
-        }catch(e){ console.warn('news load error', e); showToast('뉴스 로드 실패'); }
+          seen = new Set();
+          data.forEach(x => {
+            const key = (x.url||'') + '|' + (x.time||'');
+            if (!typeFilter.value || x.type===typeFilter.value) {
+              insertSorted(renderRow(x));
+            }
+            seen.add(key);
+          });
+          if (data.length===0) showToast('���� ��� ���� (Ű����/��� Ȯ��)');
+        }catch(e){ console.warn('news load error', e); showToast('���� �ε� ����'); }
       }
 
       function cleanupES(){
@@ -385,8 +445,10 @@
             const x = JSON.parse(e.data);
             if (typeFilter.value && x.type !== typeFilter.value) return;
             const key = (x.url||'') + '|' + (x.time||'');
-            if (seen.has(key)) return; seen.add(key);
-            topBody.prepend(renderRow(x));
+            if (seen.has(key)) return;
+            seen.add(key);
+            const row = renderRow(x);
+            insertSorted(row);
             if (topBody.childElementCount > 200) {
               topBody.removeChild(topBody.lastElementChild);
             }
