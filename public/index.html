@@ -173,12 +173,20 @@
     // - 날짜만 있으면    "MM-DD"  (00:00 표시 안 함)
     function dartTimeInfo(x){
       const raw = x.raw || {};
+      const ts = Number.isFinite(Number(x.time_ts)) ? Number(x.time_ts) : NaN;
+      if (!Number.isNaN(ts)) {
+        const dt = new Date(ts);
+        if (!Number.isNaN(dt.getTime())) {
+          return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
+        }
+      }
+
       let source = x.time || x.published_at || x.inserted_at || raw.rcept_dt || raw.rcp_dt || '';
       if (!source) return { iso:'', display:'' };
 
       if (/^\d{8}$/.test(source)) {
         const y = source.slice(0,4), m = source.slice(4,6), d = source.slice(6,8);
-        const iso = `${y}-${m}-${d}T00:00:00+09:00`;
+        const iso = ${y}--T00:00:00+09:00;
         const dt  = new Date(iso);
         if (!Number.isNaN(dt.getTime())) {
           return { iso: dt.toISOString(), display: fmtMMDD(dt) };
@@ -186,7 +194,7 @@
       }
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(source)) {
-        const iso = `${source}T00:00:00+09:00`;
+        const iso = ${source}T00:00:00+09:00;
         const dt  = new Date(iso);
         if (!Number.isNaN(dt.getTime())) {
           return { iso: dt.toISOString(), display: fmtMMDD(dt) };
@@ -196,7 +204,7 @@
       const m14 = source.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
       if (m14) {
         const [, y, m, d, hh, mm, ss] = m14;
-        const iso = `${y}-${m}-${d}T${hh}:${mm}:${ss}+09:00`;
+        const iso = ${y}--T::+09:00;
         const dt = new Date(iso);
         if (!Number.isNaN(dt.getTime())) {
           return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
@@ -206,7 +214,7 @@
       const m12 = source.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/);
       if (m12) {
         const [, y, m, d, hh, mm] = m12;
-        const iso = `${y}-${m}-${d}T${hh}:${mm}:00+09:00`;
+        const iso = ${y}--T::00+09:00;
         const dt = new Date(iso);
         if (!Number.isNaN(dt.getTime())) {
           return { iso: dt.toISOString(), display: fmtMMDD_HHMM(dt) };
@@ -356,27 +364,35 @@
       };
 
       const renderRow = (x) => {
-        const corp = `${x.corp || '-'}${x.stock_code ? ' (' + x.stock_code + ')' : ''}`;
+        const corp = ${x.corp || '-'};
         const url  = x.url
-          ? `<a class="text-indigo-300 underline" href="${x.url}" target="_blank" rel="noopener noreferrer">기사</a>`
+          ? <a class="text-indigo-300 underline" href="" target="_blank" rel="noopener noreferrer">기사</a>
           : '';
-        let ts = NaN;
-        let t = '';
-        if (x.time) {
-          const dt = new Date(x.time);
-          if (!Number.isNaN(dt.getTime())) {
-            ts = dt.getTime();
-            t = fmtMMDD_HHMM(dt);
+        let ts = Number.isFinite(Number(x.time_ts)) ? Number(x.time_ts) : NaN;
+        let dt = null;
+        if (!Number.isNaN(ts)) {
+          dt = new Date(ts);
+          if (Number.isNaN(dt.getTime())) {
+            dt = null;
+            ts = NaN;
           }
         }
+        if (!dt && x.time) {
+          const parsed = new Date(x.time);
+          if (!Number.isNaN(parsed.getTime())) {
+            dt = parsed;
+            ts = parsed.getTime();
+          }
+        }
+        const display = dt ? fmtMMDD_HHMM(dt) : '';
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-800/60 hover:bg-slate-800/30';
         if (!Number.isNaN(ts)) tr.dataset.ts = String(ts);
         tr.innerHTML =
-          `<td class="py-2 pr-3 align-top whitespace-nowrap">${t}</td>
-           <td class="py-2 pr-3 align-top">${badge(x.type)}</td>
-           <td class="py-2 pr-3 align-top">${corp}</td>
-           <td class="py-2 align-top">${x.headline || ''}${url ? ' · ' + url : ''}</td>`;
+          <td class="py-2 pr-3 align-top whitespace-nowrap"></td>
+           <td class="py-2 pr-3 align-top"></td>
+           <td class="py-2 pr-3 align-top"></td>
+           <td class="py-2 align-top"></td>;
         return tr;
       };
 

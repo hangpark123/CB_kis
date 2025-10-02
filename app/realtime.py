@@ -107,9 +107,11 @@ async def _fetch_naver_once(queries: Iterable[str], display: int = 30, mode: str
                 if mode == "cb" and not re.search(COMBINED, text, flags=re.I):
                     continue
 
+                ts = int(pub_u.timestamp() * 1000) if pub_u else None
                 out.append({
                     "source": "naver_news",
                     "time": pub_u.isoformat() if pub_u else None,
+                    "time_ts": ts,
                     "type": _classify(text),
                     "headline": title,
                     "summary": desc,
@@ -233,9 +235,16 @@ async def _fetch_dart_once(minutes: int = 60, page_count: int = 100, max_pages: 
                 pub   = _parse_rcept_dt(it.get("rcept_dt"))  # aware(KST)
                 rcp_no = it.get("rcp_no")
                 url   = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcp_no}"
+                ts = None
+                if pub is not None:
+                    try:
+                        ts = int(pub.astimezone(UTC).timestamp() * 1000)
+                    except Exception:
+                        ts = None
                 out.append({
                     "source": "dart",
                     "time": pub.isoformat() if pub else None,   # ISO(±tz)
+                    "time_ts": ts,
                     "type": _classify(title),
                     "headline": title,
                     "summary": "",

@@ -63,3 +63,9 @@ python -m app.scorer
 - KRX/SEIBRO 데이터 보강(전환가/패리티/괴리율)
 - Slack/Telegram 알림
 - KIS OpenAPI 연동(조건부 자동주문/시뮬레이션)
+
+git status              # 어떤 파일이 변경됐는지 확인
+git add .               # 변경/추가된 파일 전부 스테이징(현재 폴더 기준)
+# 또는 전체 저장소 기준이면: git add -A
+git commit -m "메시지"   # 스냅샷(커밋) 생성
+git push -u origin main # 이 커밋들을 원격(main)으로 푸시
