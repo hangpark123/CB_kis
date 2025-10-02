@@ -2,11 +2,13 @@
 사용법:
     python -m app.tools_backfill_times
 """
+
 import datetime as dt
 from email.utils import parsedate_to_datetime
 from sqlalchemy import select
 from .db import SessionLocal
 from .models import RawEvent, NormEvent
+
 
 def run():
     fixed_raw, fixed_norm = 0, 0
@@ -28,7 +30,9 @@ def run():
                 if s2 and len(s2) == 14:
                     try:
                         KST = dt.timezone(dt.timedelta(hours=9))
-                        r.published_at = dt.datetime.strptime(s2, "%Y%m%d%H%M%S").replace(tzinfo=KST)
+                        r.published_at = dt.datetime.strptime(
+                            s2, "%Y%m%d%H%M%S"
+                        ).replace(tzinfo=KST)
                         fixed_raw += 1
                     except Exception:
                         pass
@@ -41,12 +45,15 @@ def run():
                 rid = int((n.ref_raw_ids or "").split(",")[0])
             except Exception:
                 continue
-            raw = s.execute(select(RawEvent).where(RawEvent.id == rid)).scalar_one_or_none()
+            raw = s.execute(
+                select(RawEvent).where(RawEvent.id == rid)
+            ).scalar_one_or_none()
             if raw and raw.published_at and not n.event_time:
                 n.event_time = raw.published_at
                 fixed_norm += 1
         s.commit()
     print(f"backfill done: raw={fixed_raw}, norm={fixed_norm}")
+
 
 if __name__ == "__main__":
     run()

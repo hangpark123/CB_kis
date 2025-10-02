@@ -46,6 +46,10 @@ uvicorn app.api:app --reload --port 8000
 ```bash
 python -m app.scorer
 ```
+## 깃 커밋
+git add .
+git commit -m "메시지"
+git push origin main
 
 ## 환경 변수(.env)
 

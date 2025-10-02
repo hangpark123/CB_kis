@@ -14,21 +14,31 @@ logging.basicConfig(
 )
 log = logging.getLogger("cb.scheduler")
 
+
 def _listener(event):
     if event.exception:
         log.error(f"JOB ERROR: {event.job_id}", exc_info=True)
     else:
         log.info(f"JOB OK: {event.job_id} (ran at {event.scheduled_run_time})")
 
+
 def main():
     init_db_and_seed()
-    sch = BackgroundScheduler(timezone="Asia/Seoul", job_defaults={"coalesce": True, "max_instances": 1})
+    sch = BackgroundScheduler(
+        timezone="Asia/Seoul", job_defaults={"coalesce": True, "max_instances": 1}
+    )
     sch.add_listener(_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
 
     # 👇 시작 즉시 1회 실행(시작 확인용)
-    sch.add_job(fetch_dart_today, "date", next_run_time=dt.datetime.now(), id="dart_once")
-    sch.add_job(fetch_naver_news, "date", next_run_time=dt.datetime.now(), id="naver_once")
-    sch.add_job(normalize_recent, "date", next_run_time=dt.datetime.now(), id="norm_once")
+    sch.add_job(
+        fetch_dart_today, "date", next_run_time=dt.datetime.now(), id="dart_once"
+    )
+    sch.add_job(
+        fetch_naver_news, "date", next_run_time=dt.datetime.now(), id="naver_once"
+    )
+    sch.add_job(
+        normalize_recent, "date", next_run_time=dt.datetime.now(), id="norm_once"
+    )
 
     # ⏱ 주기 작업
     sch.add_job(fetch_dart_today, "cron", minute="*/5", id="dart_5m")
@@ -43,6 +53,7 @@ def main():
     except KeyboardInterrupt:
         log.info("Shutting down scheduler...")
         sch.shutdown()
+
 
 if __name__ == "__main__":
     main()
