@@ -1,67 +1,46 @@
-﻿from __future__ import annotations
-
+from sqlalchemy import select, func
 import datetime as dt
-from typing import Dict, List
-
-from sqlalchemy import func, select
-
 from .db import SessionLocal
 from .models import NormEvent, RawEvent
 
-
-def counts_by_type(hours: int = 24) -> Dict[str, int]:
-    """Return counts of normalized events grouped by type for the last *hours*."""
+def counts_by_type(hours: int = 24):
+    """24시간 집계 기준을 created_at이 아닌 event_time(원본 시간)으로 변경, 없으면 created_at 백업."""
     cutoff = dt.datetime.utcnow() - dt.timedelta(hours=hours)
-    with SessionLocal() as session:
-        rows = session.execute(
+    with SessionLocal() as s:
+        # COALESCE(event_time, created_at) >= cutoff
+        rows = s.execute(
             select(NormEvent.event_type, func.count())
             .where(func.coalesce(NormEvent.event_time, NormEvent.created_at) >= cutoff)
             .group_by(NormEvent.event_type)
         ).all()
-    return {event_type or "UNKNOWN": int(count) for event_type, count in rows}
+    return {k or "UNKNOWN": int(v) for k, v in rows}
 
-
-def top_enriched(limit: int = 50) -> List[dict]:
-    """Return the top *limit* normalized events ordered by score then recency."""
-    with SessionLocal() as session:
-        rows = (
-            session.execute(
-                select(NormEvent)
-                .order_by(
-                    NormEvent.score.desc(),
-                    func.coalesce(NormEvent.event_time, NormEvent.created_at).desc(),
-                )
-                .limit(limit)
-            )
-            .scalars()
-            .all()
-        )
-
-        enriched = []
-        for row in rows:
+def top_enriched(limit: int = 50):
+    with SessionLocal() as s:
+        rows = s.execute(
+            select(NormEvent).order_by(
+                NormEvent.score.desc(),
+                func.coalesce(NormEvent.event_time, NormEvent.created_at).desc()
+            ).limit(limit)
+        ).scalars().all()
+        out = []
+        for r in rows:
             url = None
             try:
-                raw_id = int((row.ref_raw_ids or "").split(",")[0])
+                raw_id = int((r.ref_raw_ids or '').split(',')[0])
                 if raw_id:
-                    raw = session.execute(
-                        select(RawEvent).where(RawEvent.id == raw_id)
-                    ).scalar_one_or_none()
+                    raw = s.execute(select(RawEvent).where(RawEvent.id == raw_id)).scalar_one_or_none()
                     if raw:
                         url = raw.url
-            except (ValueError, TypeError):
-                # ref_raw_ids may be empty or malformed; ignore and continue
+            except Exception:
                 pass
-
-            enriched.append(
-                {
-                    "time": str(row.event_time or row.created_at),
-                    "stock_code": row.stock_code,
-                    "corp": row.corp_name_kr,
-                    "type": row.event_type,
-                    "headline": row.headline,
-                    "score": float(row.score) if row.score is not None else None,
-                    "url": url,
-                }
-            )
-
-    return enriched
+            out.append({
+                "time": str(r.event_time or r.created_at),
+                "stock_code": r.stock_code,
+                "corp": r.corp_name_kr,
+                "type": r.event_type,
+                "headline": r.headline,
+                "score": float(r.score) if r.score is not None else None,
+                "url": url
+            })
+    return out

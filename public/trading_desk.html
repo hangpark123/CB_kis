@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AntTrading Pro</title>
+    <!-- Favicon -->
+    <link rel="icon" href="https://via.placeholder.com/32/2962ff/ffffff?text=A">
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/tradingview_style.css?v=204">
+    <!-- Chart Library -->
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+
+<body>
+    <div class="terminal-layout">
+        <!-- === HEADER === -->
+        <header class="app-header">
+            <div class="logo-area">
+                <span style="color:#2962ff">Ant</span>Trading <span class="pro-badge">PRO</span>
+            </div>
+
+            <div class="search-bar-wrap">
+                <input type="text" id="symbolSearch" class="symbol-search" placeholder="종목 검색 (예: 삼성전자, 005930)..."
+                    autocomplete="off">
+                <div id="searchResults" class="search-results"></div>
+            </div>
+
+            <div class="header-right">
+                <div class="account-summary">
+                    <div class="acc-item">
+                        <span class="acc-label">총 평가자산</span>
+                        <span class="acc-val" id="accountAsset">--</span>
+                    </div>
+                    <div class="acc-item">
+                        <span class="acc-label">당일 손익</span>
+                        <span class="acc-val" id="accountPnL">--</span>
+                    </div>
+                </div>
+                <div class="user-profile">
+                    <button class="icon-btn" onclick="refreshAccountInfo()">↻</button>
+                    <button class="market-btn" onclick="location.href='/'">대시보드</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- === LEFT SIDEBAR === -->
+        <aside class="sidebar-left">
+            <nav class="tab-nav">
+                <button class="tab-btn active">관심종목</button>
+            </nav>
+            <div class="sidebar-content" id="watchlist">
+                <!-- Watchlist Items Injected Here -->
+            </div>
+            <!-- AI Picks (Mini) -->
+            <div style="padding:8px; border-top:1px solid #2a2e39;">
+                <div style="font-size:11px; color:#5e6673; font-weight:700; margin-bottom:4px;">AI 추천 신호</div>
+                <div id="aiPicks"></div>
+            </div>
+        </aside>
+
+        <!-- === MAIN CENTER === -->
+        <section class="main-chart-area">
+            <!-- Chart Header Info -->
+            <div class="chart-header-bar">
+                <div class="stock-title-wrap">
+                    <span class="st-name" id="stockName">삼성전자</span>
+                    <span class="st-code" id="stockCode">005930</span>
+                    <span style="font-size:12px; color:#2962ff; font-weight:700;" id="stockExchange">KRX</span>
+                </div>
+                <div class="market-stats">
+                    <div class="stat-box">
+                        <span class="sb-label">현재가</span>
+                        <span class="sb-val" id="currentPrice" style="font-size:16px; font-weight:700;">--</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="sb-label">등락률</span>
+                        <span class="sb-val" id="priceChange">--</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="sb-label">거래량</span>
+                        <span class="sb-val">12.5M</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="sb-label">고가</span>
+                        <span class="sb-val up">--</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="sb-label">저가</span>
+                        <span class="sb-val down">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div id="chartContainer"></div>
+        </section>
+
+        <!-- === RIGHT SIDEBAR (ORDER PANEL) === -->
+        <aside class="sidebar-right">
+            <!-- Order Book (Visual Mockup for Pro Feel) -->
+            <div class="order-book-visual">
+                <div style="text-align:center; color:#5e6673; font-size:10px; margin-bottom:4px;">일반호가 (10단계)</div>
+                <!-- Asks -->
+                <div id="obAsks">
+                    <div class="ob-row ob-ask"><span class="ob-price">74,500</span><span class="ob-amount">1,240</span>
+                        <div class="ob-bar" style="width:30%"></div>
+                    </div>
+                    <div class="ob-row ob-ask"><span class="ob-price">74,400</span><span class="ob-amount">5,892</span>
+                        <div class="ob-bar" style="width:60%"></div>
+                    </div>
+                    <div class="ob-row ob-ask"><span class="ob-price">74,300</span><span class="ob-amount">3,100</span>
+                        <div class="ob-bar" style="width:40%"></div>
+                    </div>
+                </div>
+                <!-- Current Price Ticker -->
+                <div class="curr-price-ticker up" id="tickerPrice">74,200</div>
+                <!-- Bids -->
+                <div id="obBids">
+                    <div class="ob-row ob-bid"><span class="ob-price">74,200</span><span class="ob-amount">8,200</span>
+                        <div class="ob-bar" style="width:80%"></div>
+                    </div>
+                    <div class="ob-row ob-bid"><span class="ob-price">74,100</span><span class="ob-amount">12,050</span>
+                        <div class="ob-bar" style="width:90%"></div>
+                    </div>
+                    <div class="ob-row ob-bid"><span class="ob-price">74,000</span><span class="ob-amount">4,500</span>
+                        <div class="ob-bar" style="width:50%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Form -->
+            <div class="order-form">
+                <div class="trade-type-tabs">
+                    <div class="trade-tab buy active" onclick="setOrderType('BUY')">매수 (Buy)</div>
+                    <div class="trade-tab sell" onclick="setOrderType('SELL')">매도 (Sell)</div>
+                </div>
+
+                <div class="input-field">
+                    <span class="input-label">가격 (원)</span>
+                    <input type="number" id="orderPrice" class="input-val" placeholder="시장가">
+                </div>
+
+                <!-- Quantity Input -->
+                <div class="input-group" style="margin-bottom: 8px;">
+                    <label style="font-size:12px; color:#848e9c; margin-bottom:4px; display:block;">수량 (주)</label>
+                    <input type="number" id="orderQty" class="order-input" placeholder="0"
+                        style="width:100%; background:#2b3139; border:1px solid #434c56; color:#eaecef; height:36px; padding:0 10px; border-radius:4px;">
+                </div>
+
+                <!-- Margin Toggle (Tab Style) -->
+                <div class="margin-toggle-box"
+                    style="display:flex; background:#1e2329; padding:2px; border-radius:4px; margin-bottom:12px;">
+                    <input type="radio" name="orderBase" id="baseCash" value="cash" checked hidden>
+                    <label for="baseCash" class="toggle-btn active" onclick="updateToggleUI(this)"
+                        style="flex:1; text-align:center; padding:6px 0; font-size:12px; cursor:pointer; border-radius:3px; color:#eaecef; transition:0.2s; background:#333;">
+                        현금 (Cash)
+                    </label>
+
+                    <input type="radio" name="orderBase" id="baseMargin" value="margin" hidden>
+                    <label for="baseMargin" class="toggle-btn" onclick="updateToggleUI(this)"
+                        style="flex:1; text-align:center; padding:6px 0; font-size:12px; cursor:pointer; border-radius:3px; color:#848e9c; transition:0.2s;">
+                        미수 (Margin)
+                    </label>
+                </div>
+
+                <!-- Percentage Buttons -->
+                <div class="pct-buttons" style="display:flex; gap:4px; margin-bottom: 16px;">
+                    <button class="pct-btn" onclick="setQtyPct(0.1)"
+                        style="flex:1; background:#2b3139; border:none; color:#eaecef; padding:6px 0; font-size:11px; cursor:pointer; border-radius:2px;">10%</button>
+                    <button class="pct-btn" onclick="setQtyPct(0.25)"
+                        style="flex:1; background:#2b3139; border:none; color:#eaecef; padding:6px 0; font-size:11px; cursor:pointer; border-radius:2px;">25%</button>
+                    <button class="pct-btn" onclick="setQtyPct(0.5)"
+                        style="flex:1; background:#2b3139; border:none; color:#eaecef; padding:6px 0; font-size:11px; cursor:pointer; border-radius:2px;">50%</button>
+                    <button class="pct-btn" onclick="setQtyPct(0.75)"
+                        style="flex:1; background:#2b3139; border:none; color:#eaecef; padding:6px 0; font-size:11px; cursor:pointer; border-radius:2px;">75%</button>
+                    <button class="pct-btn" onclick="setQtyPct(1.0)"
+                        style="flex:1; background:#474d57; border:none; color:#f0b90b; font-weight:700; padding:6px 0; font-size:11px; cursor:pointer; border-radius:2px;">최대</button>
+                </div>
+
+                <!-- Balance Summary (Stacked Layout) -->
+                <div class="order-summary"
+                    style="margin-bottom:16px; font-family:var(--font-mono); background:#1e2329; padding:10px; border-radius:4px;">
+                    <!-- Cash Row -->
+                    <div style="margin-bottom:8px;">
+                        <div style="font-size:11px; color:#848e9c; margin-bottom:2px;">현금가능</div>
+                        <div class="max-cash-bal"
+                            style="font-size:14px; color:#eaecef; font-weight:700; text-align:right;">--</div>
+                    </div>
+                    <!-- Margin Row -->
+                    <div>
+                        <div style="font-size:11px; color:#848e9c; margin-bottom:2px;">미수가능</div>
+                        <div class="max-margin-bal"
+                            style="font-size:14px; color:#f0b90b; font-weight:700; text-align:right;">--</div>
+                    </div>
+                </div>
+
+                <button id="btnExecute" class="submit-btn buy" onclick="executeOrder()">매수 주문</button>
+            </div>
+
+            <!-- News / AI (Small) -->
+            <div style="flex:1; padding:12px; border-top:1px solid #2a2e39; overflow-y:auto;" id="aiContent">
+                <div style="font-size:11px; color:#5e6673; font-weight:700;">AI 종목 분석</div>
+                <div style="margin-top:8px; font-size:12px; color:#848e9c;">종목을 선택하면 분석이 시작됩니다.</div>
+            </div>
+        </aside>
+
+        <!-- === BOTTOM PANEL (POSITIONS) === -->
+        <footer class="bottom-panel">
+            <div class="panel-tabs">
+                <div class="panel-tab active" onclick="loadPortfolio()">보유잔고 (Positions)</div>
+                <div class="panel-tab" onclick="loadOrders()">미체결</div>
+                <div class="panel-tab" onclick="loadHistory()">거래내역</div>
+            </div>
+            <div class="table-wrap">
+                <table class="pro-table">
+                    <thead>
+                        <tr>
+                            <th>종목명</th>
+                            <th>구분</th>
+                            <th>보유수량</th>
+                            <th>매입단가</th>
+                            <th>현재가</th>
+                            <th>평가손익 (수익률)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolioTableBody">
+                        <!-- Portfolio data will be injected here by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/js/tradingview_main.js?v=207"></script>
+    <div id="portfolio" style="display:none;"></div> <!-- Compatibility Stub -->
+</body>
+
+</html>

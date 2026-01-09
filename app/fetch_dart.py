@@ -1,86 +1,46 @@
-﻿from __future__ import annotations
-
-import datetime as dt
-import logging
-import re
-from typing import Optional
-
-import httpx
-
+import httpx, datetime as dt, re, logging
 from .config import settings
 from .db import SessionLocal
-from .keywords import COMBINED
 from .models import RawEvent
+from .keywords import COMBINED
 
-LOGGER = logging.getLogger("cb.dart.fetch")
-
+log = logging.getLogger("cb.dart")
 DART_URL = "https://opendart.fss.or.kr/api/list.json"
 KST = dt.timezone(dt.timedelta(hours=9))
 
-
-def _parse_receipt_datetime(raw: str | None) -> Optional[dt.datetime]:
-    """Return a timezone-aware datetime parsed from a DART rcept_dt field."""
-    if not raw:
-        return None
-
+def _parse_rcept_dt(s: str | None):
+    # ex) '20250102123456' (YYYYMMDDHHMMSS), KST 기준
+    if not s: return None
     try:
-        return dt.datetime.strptime(raw, "%Y%m%d%H%M%S").replace(tzinfo=KST)
-    except ValueError:
-        LOGGER.debug("Failed to parse rcept_dt value: %s", raw, exc_info=True)
+        return dt.datetime.strptime(s, "%Y%m%d%H%M%S").replace(tzinfo=KST)
+    except Exception:
         return None
-
-
-def _should_capture(title: str) -> bool:
-    """Check whether the disclosure title matches CB-related keywords."""
-    return bool(title and re.search(COMBINED, title, flags=re.I))
-
 
 def fetch_dart_today() -> int:
-    """Fetch today's disclosures from DART and persist convertible-bond items.
-
-    Returns the number of RawEvent records created.
-    """
-    api_key = settings.DART_API_KEY
-    if not api_key:
-        LOGGER.warning("DART_API_KEY is not configured; skipping DART fetch")
+    if not settings.DART_API_KEY:
+        log.warning("DART_API_KEY 미설정")
         return 0
-
-    today = dt.datetime.now(tz=KST).strftime("%Y%m%d")
-    params = {"crtfc_key": api_key, "bgn_de": today, "page_no": 1, "page_count": 100}
-    timeout = httpx.Timeout(connect=3.0, read=6.0, write=5.0, pool=3.0)
-
+    params = {"crtfc_key": settings.DART_API_KEY, "bgn_de": dt.datetime.now().strftime("%Y%m%d"),
+              "page_no": 1, "page_count": 100}
     inserted = 0
-    with httpx.Client(timeout=timeout) as client, SessionLocal() as session:
+    timeout = httpx.Timeout(connect=3.0, read=6.0, write=5.0, pool=3.0)
+    with httpx.Client(timeout=timeout) as c, SessionLocal() as s:
+        r = c.get(DART_URL, params=params)
         try:
-            response = client.get(DART_URL, params=params)
-            response.raise_for_status()
-            payload = response.json()
-        except Exception as exc:
-            LOGGER.error("Failed to fetch DART list.json: %s", exc, exc_info=True)
-            return 0
-
-        for item in payload.get("list", []):
-            title = item.get("report_nm") or ""
-            if not _should_capture(title):
-                continue
-
-            published_at = _parse_receipt_datetime(item.get("rcept_dt"))
-
-            session.add(
-                RawEvent(
+            data = r.json()
+        except Exception as e:
+            log.error("DART 응답 파싱 실패: %s", e); return 0
+        for it in data.get("list", []):
+            title = (it.get("report_nm") or "")
+            if re.search(COMBINED, title, flags=re.I):
+                pub_dt = _parse_rcept_dt(it.get("rcept_dt"))  # ✅ 접수시각 기준
+                s.add(RawEvent(
                     source="dart",
-                    url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={item.get('rcp_no')}",
-                    title=title,
-                    content=None,
-                    corp_name_kr=item.get("corp_name"),
-                    published_at=published_at,
-                    raw_json=item,
-                    inserted_at=dt.datetime.utcnow(),
-                )
-            )
-            inserted += 1
-
-        session.commit()
-
-    LOGGER.info("DART ingest complete (inserted=%d)", inserted)
+                    url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={it.get('rcp_no')}",
+                    title=title, content=None, corp_name_kr=it.get("corp_name"),
+                    published_at=pub_dt, raw_json=it, inserted_at=dt.datetime.utcnow()
+                ))
+                inserted += 1
+        s.commit()
+    log.info("DART 수집 완료: %d건 (rcept_dt 저장)", inserted)
     return inserted

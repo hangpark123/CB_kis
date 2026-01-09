@@ -1,7 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .config import settings
-
 if settings.PG_DSN:
     engine = create_engine(settings.PG_DSN, pool_pre_ping=True, future=True)
 else:

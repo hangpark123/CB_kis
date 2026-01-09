@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "cb-trading": {
+      "command": "python",
+      "args": [
+        "-m",
+        "app.mcp_server"
+      ],
+      "cwd": "c:\\Project\\CB_kis",
+      "env": {
+        "PYTHONPATH": "c:\\Project\\CB_kis"
+      }
+    },
+    "kis-code-assistant": {
+      "type": "sse",
+      "url": "https://server.smithery.ai/@KISOpenAPI/kis-code-assistant-mcp"
+    }
+  }
+}
