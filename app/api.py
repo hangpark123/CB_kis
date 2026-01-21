@@ -613,38 +613,73 @@ def api_trading_search(query: str, market: str = "KR"):
             # 리스트인 경우 (구버전 호환)
             all_list = stocks
             
-        # 검색 로직
+        # 검색 로직: 대소문자 무시, 부분 매칭, 코드 매칭
         import unicodedata
         
-        normalized_query = unicodedata.normalize('NFC', query).upper()
-        # print(f"DEBUG SEARCH: Query='{query}' Norm='{normalized_query}'")
+        # 쿼리 정규화 (NFC: 한글 합성)
+        normalized_query = unicodedata.normalize('NFC', query).strip().upper()
         
-        results = []
+        candidates = []
+        
         for s in all_list:
-            # Code or Name matching
-            # Name: 'name' or 'stock_name'
-            # Code: 'code' or 'stock_code'
             s_name = s.get("name") or s.get("stock_name") or ""
             s_code = s.get("code") or s.get("stock_code") or ""
             
+            # 이름 정규화
             norm_name = unicodedata.normalize('NFC', s_name).upper()
+            norm_code = s_code.upper()
             
-            # if "이원" in norm_name:
-            #     print(f"DEBUG CANDIDATE: {norm_name} ({s_code})")
+            # 매칭 조건 확장
+            # 1. 코드 검색 (숫자만 입력한 경우 또는 정확한 코드)
+            code_match = query in s_code or normalized_query in norm_code
             
-            if normalized_query in norm_name or query in s_code:
-                # 필드명 통일해서 반환
-                results.append({
-                    "stock_code": s_code,
-                    "stock_name": s_name,
-                    "market": s.get("market", "KR"),
-                    "exchange": s.get("exchange", "KRX")
-                })
-                if len(results) >= 10: break
+            # 2. 이름 검색 (부분 일치)
+            name_match = normalized_query in norm_name
+            
+            if code_match or name_match:
+                # 점수 산정 (낮을수록 우선)
+                score = 100
                 
+                # 정확 일치 (최우선)
+                if normalized_query == norm_name or query == s_code:
+                    score = 0
+                # 코드 정확 일치
+                elif query == s_code or normalized_query == norm_code:
+                    score = 1
+                # 이름이 쿼리로 시작
+                elif norm_name.startswith(normalized_query):
+                    score = 10 + len(norm_name)
+                # 코드가 쿼리로 시작
+                elif norm_code.startswith(normalized_query):
+                    score = 15 + len(norm_code)
+                # 이름에 포함
+                elif normalized_query in norm_name:
+                    score = 50 + len(norm_name)
+                # 코드에 포함
+                else:
+                    score = 60 + len(norm_code)
+                
+                candidates.append({
+                    "data": {
+                        "stock_code": s_code,
+                        "stock_name": s_name,
+                        "market": s.get("market", "KR"),
+                        "exchange": s.get("exchange", "KRX")
+                    },
+                    "score": score
+                })
+        
+        # 점수 기준 정렬
+        candidates.sort(key=lambda x: x["score"])
+        
+        # 상위 50개 반환 (충분히 많은 결과)
+        results = [c["data"] for c in candidates[:50]]
+        
         return results
     except Exception as e:
+        import traceback
         print(f"검색 오류: {e}")
+        print(traceback.format_exc())
         return []
 
 
@@ -739,48 +774,32 @@ def api_trading_performance(stock_code: str = "005930"):
         print(f"Performance API Error: {e}")
         return {"error": str(e)}
 
-# === 미체결 내역 API (더미) ===
+# === 미체결 내역 API ===
 @app.get("/api/trading/orders")
 def api_trading_orders():
-    "미체결 내역 조회 (더미)"
-    return [
-        {
-            "order_id": "1001",
-            "stock_code": "005930",
-            "stock_name": "삼성전자",
-            "side": "매수",
-            "price": 72000,
-            "quantity": 10,
-            "executed_qty": 0,
-            "status": "접수",
-            "time": "14:20:05"
-        }
-    ]
+    """미체결 내역 조회"""
+    from .kis_api import get_unfilled_orders
+    
+    try:
+        return get_unfilled_orders()
+    except Exception as e:
+        print(f"미체결 조회 오류: {e}")
+        return []
 
-# === 거래 내역 API (더미) ===
+# === 거래 내역 API ===
 @app.get("/api/trading/history")
 def api_trading_history():
-    "거래 내역 조회 (더미)"
-    return [
-        {
-            "id": "2001",
-            "stock_name": "SK하이닉스",
-            "side": "매수",
-            "price": 135000,
-            "quantity": 5,
-            "amount": 675000,
-            "time": "2026-01-09 10:00:00"
-        },
-        {
-            "id": "2002",
-            "stock_name": "NAVER",
-            "side": "매도",
-            "price": 210000,
-            "quantity": 2,
-            "amount": 420000,
-            "time": "2026-01-08 15:30:00"
-        }
-    ]
+    """거래 내역 조회 (최근 7일)"""
+    from .kis_api import get_execution_history
+    from datetime import datetime, timedelta
+    
+    try:
+        end_date = datetime.now().strftime("%Y%m%d")
+        start_date = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
+        return get_execution_history(start_date, end_date)
+    except Exception as e:
+        print(f"거래내역 조회 오류: {e}")
+        return []
 # Reload trigger
 # Reload trigger 2
 # Force Reload 3
@@ -822,3 +841,21 @@ def api_revise_cancel(order_id: str, type: str, quantity: int = 0, price: int = 
 
     return {"status": "ok", "message": f"�N��& {type} ���% ?����"}
 
+@app.post("/api/trading/revise_cancel")
+def api_revise_cancel(order_id: str, type: str, quantity: int = 0, price: int = 0):
+    """주문 취소/정정"""
+    from .kis_api import cancel_order
+    
+    try:
+        if type == "cancel":
+            result = cancel_order(order_id)
+            if result.get("status") == "ok":
+                return {"status": "ok", "message": "주문 취소 완료"}
+            else:
+                return {"status": "error", "message": result.get("message", "취소 실패")}
+        else:
+            # 정정 기능은 추후 구현
+            return {"status": "error", "message": "정정 기능은 아직 지원되지 않습니다"}
+    except Exception as e:
+        print(f"주문 취소 오류: {e}")
+        return {"status": "error", "message": str(e)}

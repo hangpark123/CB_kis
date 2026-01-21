@@ -105,6 +105,26 @@ function setupSearch() {
             results.style.display = 'block';
         }
     });
+
+    // 엔터키 입력 시 첫 번째 결과 자동 선택
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const firstItem = results.querySelector('.search-result-item');
+            if (firstItem) {
+                firstItem.click();
+            } else {
+                const query = input.value.trim();
+                if (query.length > 0) {
+                    await searchStocks(query);
+                    setTimeout(() => {
+                        const newFirst = results.querySelector('.search-result-item');
+                        if (newFirst) newFirst.click();
+                    }, 500);
+                }
+            }
+        }
+    });
 }
 
 async function searchStocks(query) {
@@ -527,17 +547,20 @@ async function loadPortfolio() {
             const rate = p.pnl_rate?.toFixed(2);
 
             return `
-            <tr onclick="selectStock('${p.stock_code}', '${p.corp_name_kr || p.stock_name}', 'KRX')" style="cursor:pointer;">
+            <tr onclick="selectStock('${p.stock_code}', '${p.corp_name_kr || p.stock_name}', 'KRX')" style="cursor:pointer; border-bottom: 1px solid #2a2e39;">
                 <td>
-                    <div style="font-weight:700;">${p.corp_name_kr || p.stock_name}</div>
-                    <div style="font-size:10px; color:#5e6673; font-family:var(--font-mono);">${p.stock_code}</div>
+                    <div style="font-weight:700; font-size:13px;">${p.corp_name_kr || p.stock_name}</div>
+                    <div style="font-size:11px; color:#5e6673; font-family:var(--font-mono);">${p.stock_code}</div>
                 </td>
                 <td style="color:#00e676;">Long</td>
-                <td style="font-family:var(--font-mono);">${qty}</td>
-                <td style="font-family:var(--font-mono);">${parseInt(p.avg_price).toLocaleString()}</td>
-                <td style="font-family:var(--font-mono); font-weight:700;">${parseInt(p.current_price).toLocaleString()}</td>
-                <td class="${pnlClass}" style="font-family:var(--font-mono); font-weight:700;">
-                    ${pnl} <span style="font-size:11px; font-weight:400;">(${rate}%)</span>
+                <td style="font-family:var(--font-mono); text-align:right;">${qty}</td>
+                <td style="font-family:var(--font-mono); text-align:right;">${parseInt(p.avg_price).toLocaleString()}</td>
+                <td style="font-family:var(--font-mono); font-weight:700; text-align:right;">${parseInt(p.current_price).toLocaleString()}</td>
+                <td style="font-family:var(--font-mono); font-weight:700; text-align:right;">
+                    <span style="color:${isPlus ? '#00e676' : '#ff3b69'}; font-size:13px; display:block;">${pnl}</span>
+                    <span style="font-size:11px; color:#fff; background:${isPlus ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 59, 105, 0.2)'}; padding: 2px 6px; border-radius: 4px; display:inline-block; margin-top:2px;">
+                        ${rate}%
+                    </span>
                 </td>
             </tr>
             `;
@@ -588,17 +611,14 @@ async function refreshAccountInfo() {
             data = await res.json();
         }
 
-        // 데이터가 없거나, cash_buy_amount가 없으면(0 포함) 데모용 더미 데이터 사용 (UI 프리뷰용)
-        // 실제 API가 성공해서 0원이 나온 경우일 수도 있지만, 현재 개발 단계에서는
-        // 0원이면 뭔가 잘못된(필드 누락) 상태로 간주하고 데모 값을 보여준다.
-        if (!data || !data.cash_buy_amount) {
-            console.warn('Using dummy account data for preview (Missing API fields)');
+        // 데이터가 없으면 기본값 0으로 처리
+        if (!data) {
             data = {
-                account_total_asset: data && data.account_total_asset ? data.account_total_asset : 98924616,
-                total_pnl: data && data.total_pnl ? data.total_pnl : -4000,
-                deposits: 100000000,
-                cash_buy_amount: 97689000, // 약 9.7천만
-                max_buy_amount: 497800000 // 약 5억 (미수)
+                account_total_asset: 0,
+                total_pnl: 0,
+                deposits: 0,
+                cash_buy_amount: 0,
+                max_buy_amount: 0
             };
         }
 
@@ -878,11 +898,8 @@ async function loadOrders() {
         }
 
         if (!orders || orders.length === 0) {
-            // 프리뷰용 더미 데이터 주입
-            orders = [
-                { order_id: "1001", stock_name: "삼성전자", stock_code: "005930", type: "BUY", quantity: 10, price: 70000 },
-                { order_id: "1002", stock_name: "SK하이닉스", stock_code: "000660", type: "SELL", quantity: 5, price: 120000 }
-            ];
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#5e6673;">미체결 내역이 없습니다.</td></tr>';
+            return;
         }
 
         tbody.innerHTML = orders.map(o => `
@@ -940,3 +957,37 @@ async function cancelOrder(id) {
         alert('통신 오류');
     }
 }
+
+// === AI ANALYSIS ===
+async function loadAIAnalysis(code) {
+    const container = document.getElementById('aiContent');
+    if (!container) return;
+    container.innerHTML = 'Analyzing...';
+
+    try {
+        const res = await fetch(`/api/trading/analyze?stock_code=${code}`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.error) {
+            container.innerHTML = `<span style="color:#ff3b69;">${data.error}</span>`;
+            return;
+        }
+
+        let color = '#787b86';
+        if (data.opinion === 'positive') color = '#00e676';
+        if (data.opinion === 'negative') color = '#ff3b69';
+
+        container.innerHTML = `
+            <div style="margin-bottom:8px;">
+                <span style="color:${color}; font-weight:700;">${data.opinion}</span>
+                <span style="float:right; color:#00e676; font-weight:700;">${data.confidence}% Confidence</span>
+            </div>
+            <div style="font-size:12px; color:#d1d4dc;">
+                ${data.reason ? data.reason.map(r => `??${r}`).join('<br>') : ''}
+            </div>
+        `;
+    } catch (e) {
+        container.innerHTML = 'Analysis unavailable';
+    }
+}
+

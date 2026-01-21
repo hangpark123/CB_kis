@@ -274,3 +274,163 @@ def get_daily_chart_data(stock_code: str, period_code: str = "D") -> list:
     except Exception as e:
         print(f"차트 조회 오류 ({stock_code}): {e}")
         return []
+
+
+def get_unfilled_orders() -> list:
+    """미체결 주문 조회 (주식정정취소가능주문조회)"""
+    _wait_for_rate_limit()
+    
+    try:
+        account = get_account_info()
+        url = f"{KIS_BASE_URL}/uapi/domestic-stock/v1/trading/inquire-psbl-rvsecncl"
+        headers = get_api_headers(_get_tr_id("TTTC8908R"))
+        
+        params = {
+            "CANO": account['account_no'],
+            "ACNT_PRDT_CD": account['product_code'],
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
+            "INQR_DVSN_1": "0",  # 0: 주문, 1: 종목
+            "INQR_DVSN_2": "0"   # 0: 전체, 1: 매도, 2: 매수
+        }
+        
+        response = httpx.get(url, headers=headers, params=params, timeout=10.0)
+        
+        if response.status_code != 200:
+            print(f"[ERROR] 미체결 조회 실패: HTTP {response.status_code}")
+            return []
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            print(f"[ERROR] 미체결 조회 API 오류: {data.get('msg1')}")
+            return []
+        
+        output = data.get("output", [])
+        unfilled_orders = []
+        
+        for item in output:
+            psbl_qty = int(float(item.get("psbl_qty", 0)))  # 정정취소가능수량
+            if psbl_qty > 0:
+                unfilled_orders.append({
+                    "order_id": item.get("odno", ""),
+                    "stock_code": item.get("pdno", ""),
+                    "stock_name": item.get("prdt_name", ""),
+                    "side": "매수" if item.get("sll_buy_dvsn_cd", "") == "02" else "매도",
+                    "price": int(float(item.get("ord_unpr", 0))),
+                    "quantity": int(float(item.get("ord_qty", 0))),
+                    "executed_qty": int(float(item.get("ccld_qty", 0))),
+                    "status": "접수" if psbl_qty == int(float(item.get("ord_qty", 0))) else "부분체결",
+                    "time": item.get("ord_tmd", "")[:6]  # HHMMSS -> HH:MM:SS
+                })
+        
+        print(f"[OK] 미체결 주문 {len(unfilled_orders)}건 조회")
+        return unfilled_orders
+        
+    except Exception as e:
+        print(f"미체결 조회 실패: {e}")
+        return []
+
+
+def get_execution_history(start_date: str, end_date: str) -> list:
+    """체결 내역 조회 (주식일별주문체결조회)"""
+    _wait_for_rate_limit()
+    
+    try:
+        account = get_account_info()
+        url = f"{KIS_BASE_URL}/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
+        headers = get_api_headers(_get_tr_id("TTTC8001R"))
+        
+        params = {
+            "CANO": account['account_no'],
+            "ACNT_PRDT_CD": account['product_code'],
+            "INQR_STRT_DT": start_date,  # YYYYMMDD
+            "INQR_END_DT": end_date,      # YYYYMMDD
+            "SRT_DVSN": "01",             # 01: 역순, 02: 정순
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": ""
+        }
+        
+        response = httpx.get(url, headers=headers, params=params, timeout=10.0)
+        
+        if response.status_code != 200:
+            print(f"[ERROR] 체결내역 조회 실패: HTTP {response.status_code}")
+            return []
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            print(f"[ERROR] 체결내역 조회 API 오류: {data.get('msg1')}")
+            return []
+        
+        output = data.get("output1", [])
+        execution_history = []
+        
+        for item in output:
+            tot_ccld_qty = int(float(item.get("tot_ccld_qty", 0)))  # 총체결수량
+            if tot_ccld_qty > 0:
+                execution_history.append({
+                    "id": item.get("odno", ""),
+                    "stock_name": item.get("prdt_name", ""),
+                    "side": "매수" if item.get("sll_buy_dvsn_cd", "") == "02" else "매도",
+                    "price": int(float(item.get("avg_prvs", 0))),  # 평균가
+                    "quantity": tot_ccld_qty,
+                    "amount": int(float(item.get("tot_ccld_amt", 0))),
+                    "time": f"{item.get('ord_dt', '')} {item.get('ord_tmd', '')[:6]}"
+                })
+        
+        print(f"[OK] 체결내역 {len(execution_history)}건 조회 ({start_date}~{end_date})")
+        return execution_history
+        
+    except Exception as e:
+        print(f"체결내역 조회 실패: {e}")
+        return []
+
+
+def cancel_order(order_no: str) -> dict:
+    """주문 취소 (주식주문(정정취소))"""
+    _wait_for_rate_limit()
+    
+    try:
+        account = get_account_info()
+        
+        # TR ID 설정
+        tr_id = _get_tr_id("TTTC0013U")
+        
+        # 주문 취소 데이터
+        data = {
+            "CANO": account['account_no'],
+            "ACNT_PRDT_CD": account['product_code'],
+            "KRX_FWDG_ORD_ORGNO": "",  # 공란 가능
+            "ORGN_ODNO": order_no,      # 원주문번호
+            "ORD_DVSN": "00",           # 지정가 (취소 시 의미 없음)
+            "RVSE_CNCL_DVSN": "02",     # 01: 정정, 02: 취소
+            "ORD_QTY": "0",             # 취소 시 0
+            "ORD_UNPR": "0",            # 취소 시 0
+            "QTY_ALL_ORD_YN": "Y"       # 잔량전부주문여부
+        }
+        
+        # Hashkey 생성
+        hashkey = get_hashkey(data)
+        
+        # 헤더 생성
+        headers = get_api_headers(tr_id, is_order=True, hashkey=hashkey)
+        
+        url = f"{KIS_BASE_URL}/uapi/domestic-stock/v1/trading/order-rvsecncl"
+        
+        response = httpx.post(url, headers=headers, json=data, timeout=10.0)
+        result = response.json()
+        
+        if result.get("rt_cd") != "0":
+            return {"status": "error", "message": result.get("msg1", "취소 실패")}
+        
+        print(f"[OK] 주문 취소 성공: {order_no}")
+        return {
+            "status": "ok", 
+            "message": result.get("msg1", "주문 취소 완료"),
+            "order_no": result.get("output", {}).get("ODNO", order_no)
+        }
+        
+    except Exception as e:
+        print(f"주문 취소 오류: {e}")
+        return {"status": "error", "message": str(e)}
