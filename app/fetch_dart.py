@@ -3,12 +3,13 @@ from .config import settings
 from .db import SessionLocal
 from .models import RawEvent
 from .keywords import COMBINED
+from typing import Optional
 
 log = logging.getLogger("cb.dart")
 DART_URL = "https://opendart.fss.or.kr/api/list.json"
 KST = dt.timezone(dt.timedelta(hours=9))
 
-def _parse_rcept_dt(s: str | None):
+def _parse_rcept_dt(s: Optional[str]):
     # ex) '20250102123456' (YYYYMMDDHHMMSS), KST 기준
     if not s: return None
     try:

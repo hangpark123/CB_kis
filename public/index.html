@@ -4,112 +4,210 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AntTrading Pro | Dashboard</title>
-  <link rel="stylesheet" href="/css/tradingview_style.css?v=205">
-  <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
-  <style>
-    @keyframes ticker {
-      0% {
-        transform: translateX(0);
-      }
-
-      100% {
-        transform: translateX(-100%);
-      }
-    }
-
-    .news-ticker {
-      display: inline-block;
-      white-space: nowrap;
-      padding-left: 100%;
-      animation: ticker 120s linear infinite;
-    }
-
-    .news-item {
-      color: #d1d4dc;
-      text-decoration: none;
-      margin-right: 32px;
-      font-size: 13px;
-    }
-
-    .news-item:hover {
-      color: #2962ff;
-    }
-  </style>
+  <title>AntTrading Pro | 메인</title>
+  <link rel="stylesheet" href="/css/toss_design_system.css">
+  <link rel="stylesheet" href="/css/dashboard_modern.css">
+  <link rel="stylesheet" href="/css/stock_modal.css">
 </head>
 
 <body>
-  <div class="dashboard-layout">
-    <header class="app-header">
-      <div class="logo-area">
-        <span>⚡ AntTrading</span>
-        <span class="pro-badge">PRO</span>
-      </div>
-      <div class="search-bar-wrap">
-        <input type="text" id="symbolSearch" class="symbol-search" placeholder="종목 검색 (예: 삼성전자, 005930)"
-          autocomplete="off">
-        <div id="searchResults" class="search-results"></div>
-      </div>
-      <div class="header-right">
-        <a href="/dash/" style="color:#fff; text-decoration:none; font-weight:700; border-bottom:2px solid #2962ff;">시장
-          탐색기</a>
-        <a href="/trading_desk.html" style="color:#848e9c; text-decoration:none;">트레이딩 데스크</a>
-        <a href="#" style="color:#848e9c; text-decoration:none;">AI 신호</a>
-        <span class="acc-val" id="aiCount">--</span>
-      </div>
-    </header>
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="dashboard-header-content">
+      <a href="/dash/" class="logo">
+        <span class="logo-icon">⚡</span>
+        <span>AntTrading</span>
+      </a>
 
-    <div class="news-ticker-wrap">
-      <div class="news-label">MARKET NEWS</div>
-      <div id="newsTicker" class="news-ticker">
-        <span style="color:#5e6673; padding:0 20px;">뉴스 데이터를 불러오는 중...</span>
+      <div class="search-container">
+        <input type="text" class="search-input" id="searchInput" placeholder="종목 검색 (예: 삼성전자, 005930)">
+      </div>
+
+      <nav class="nav-links">
+        <a href="/dash/" class="nav-link active">홈</a>
+        <a href="/mbti.html" class="nav-link">MBTI 추천</a>
+        <a href="/trading_desk.html" class="nav-link">트레이딩</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="dashboard-main">
+    <!-- Page Title -->
+    <h1 class="page-title">오늘의 추천 종목</h1>
+    <p class="page-subtitle">AI가 분석한 투자 기회를 확인하세요</p>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">AI 스코어 TOP</div>
+        <div class="stat-value" id="topScore">--</div>
+        <div class="stat-change positive" id="topChange">
+          <span>--</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">주요 공시</div>
+        <div class="stat-value" id="dartCount">--</div>
+        <div class="stat-change">
+          <span>오늘</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">최신 뉴스</div>
+        <div class="stat-value" id="newsCount">--</div>
+        <div class="stat-change">
+          <span>1시간 이내</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">활성 종목</div>
+        <div class="stat-value" id="activeCount">--</div>
+        <div class="stat-change positive">
+          <span>거래량 급증</span>
+        </div>
       </div>
     </div>
 
-    <section class="hero-stats">
-      <div class="stat-card">
-        <span class="stat-label">🔥 최고 상승 (Daily)</span>
-        <span id="topRise" class="stat-value">--</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">💧 최고 하락 (Daily)</span>
-        <span id="topFall" class="stat-value">--</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">📊 거래량 1위</span>
-        <span id="topVolume" class="stat-value">--</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">🤖 AI 추천 종목수</span>
-        <span id="aiPickCount" class="stat-value" style="color:#00e676;">--</span>
-      </div>
-    </section>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="ranking" onclick="switchTab('ranking')">AI 랭킹</button>
+      <button class="tab" data-tab="news" onclick="switchTab('news')">공시/뉴스</button>
+      <button class="tab" data-tab="recomm" onclick="switchTab('recomm')">추천 종목</button>
+    </div>
 
-    <main class="dashboard-grid">
-      <div class="dashboard-col">
-        <div class="col-header">
-          <h2>📈 급상승 랭킹</h2>
-          <button class="refresh-btn" onclick="refreshRanks()">새로고침</button>
+    <!-- Tab Contents -->
+    <div id="rankingTab" class="tab-content active">
+      <div class="section-header" style="margin-top: 24px;">
+        <h2 class="section-title">AI Score 순위</h2>
+        <div class="section-actions">
+          <button class="btn btn-ghost btn-sm" onclick="refreshRanking()">새로고침</button>
         </div>
-        <div id="riseRanking" class="rank-list"></div>
       </div>
-      <div class="dashboard-col">
-        <div class="col-header">
-          <h2>🔥 거래량 상위</h2>
-          <button class="refresh-btn" onclick="refreshRanks()">새로고침</button>
+
+      <div id="rankingList" class="stock-list">
+        <!-- Stock items will be inserted here -->
+        <div class="empty-state">
+          <div class="empty-icon">📊</div>
+          <h3 class="empty-title">데이터를 불러오는 중...</h3>
+          <p class="empty-description">잠시만 기다려주세요</p>
         </div>
-        <div id="volumeRanking" class="rank-list"></div>
       </div>
-      <div class="dashboard-col">
-        <div class="col-header">
-          <h2>⚡ 테마 / 특징주</h2>
-          <button class="refresh-btn" onclick="refreshRanks()">새로고침</button>
+    </div>
+
+    <div id="newsTab" class="tab-content" style="display: none;">
+      <div class="section-header" style="margin-top: 24px;">
+        <h2 class="section-title">최신 공시 & 뉴스</h2>
+      </div>
+      <div id="newsList" class="stock-list">
+        <div class="empty-state">
+          <div class="empty-icon">📰</div>
+          <h3 class="empty-title">준비 중입니다</h3>
         </div>
-        <div id="themeRanking" class="rank-list"></div>
       </div>
-    </main>
+    </div>
+
+    <div id="recommTab" class="tab-content" style="display: none;">
+      <div class="section-header" style="margin-top: 24px;">
+        <h2 class="section-title">오늘의 추천</h2>
+      </div>
+      <div id="recommList" class="stock-list">
+        <div class="empty-state">
+          <div class="empty-icon">⭐</div>
+          <h3 class="empty-title">준비 중입니다</h3>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Stock Detail Modal (from previous implementation) -->
+  <div id="stockModalOverlay" class="stock-modal-overlay" onclick="closeStockModal()"></div>
+  <div id="stockModal" class="stock-modal">
+    <div class="modal-drag-handle"></div>
+    <button class="modal-close" onclick="closeStockModal()"></button>
+
+    <div class="modal-header">
+      <div class="modal-stock-name" id="modalStockName">종목명</div>
+      <div class="modal-stock-code" id="modalStockCode">000000</div>
+      <div class="modal-price-info">
+        <div class="modal-current-price" id="modalCurrentPrice">-</div>
+        <div class="modal-change" id="modalChange">-</div>
+      </div>
+    </div>
+
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="overview" onclick="switchModalTab('overview')">개요</button>
+      <button class="modal-tab" data-tab="financials" onclick="switchModalTab('financials')">재무</button>
+      <button class="modal-tab" data-tab="company" onclick="switchModalTab('company')">기업정보</button>
+    </div>
+
+    <div class="modal-content">
+      <div id="modalLoading" class="modal-loading" style="display: none;">
+        <div class="modal-spinner"></div>
+        <p>정보를 불러오는 중...</p>
+      </div>
+
+      <div id="overviewTab" class="modal-tab-content active">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">시가총액</div>
+            <div class="info-value" id="modalMarketCap">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">거래량</div>
+            <div class="info-value" id="modalVolume">-</div>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3 class="modal-section-title">기본 정보</h3>
+          <div class="modal-row">
+            <span class="modal-row-label">업종</span>
+            <span class="modal-row-value" id="modalIndustry">-</span>
+          </div>
+          <div class="modal-row">
+            <span class="modal-row-label">대표이사</span>
+            <span class="modal-row-value" id="modalCEO">-</span>
+          </div>
+          <div class="modal-row">
+            <span class="modal-row-label">설립일</span>
+            <span class="modal-row-value" id="modalFounded">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="financialsTab" class="modal-tab-content">
+        <div class="modal-section">
+          <h3 class="modal-section-title">재무 정보</h3>
+          <div class="modal-row">
+            <span class="modal-row-label">매출액</span>
+            <span class="modal-row-value" id="modalRevenue">-</span>
+          </div>
+          <div class="modal-row">
+            <span class="modal-row-label">영업이익</span>
+            <span class="modal-row-value" id="modalOperatingProfit">-</span>
+          </div>
+          <div class="modal-row">
+            <span class="modal-row-label">순이익</span>
+            <span class="modal-row-value" id="modalNetIncome">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="companyTab" class="modal-tab-content">
+        <div class="modal-section">
+          <h3 class="modal-section-title">기업 개요</h3>
+          <p>준비 중입니다.</p>
+        </div>
+      </div>
+    </div>
   </div>
-  <script src="/js/index_main.js?v=203"></script>
+
+  <script src="/js/stock_modal.js"></script>
+  <script src="/js/dashboard_modern.js"></script>
 </body>
 
 </html>

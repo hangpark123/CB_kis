@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AntTrading Pro | Dashboard</title>
+  <link rel="stylesheet" href="/css/tradingview_style.css?v=205">
+  <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    @keyframes ticker {
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+    .news-ticker {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: ticker 120s linear infinite;
+    }
+
+    .news-item {
+      color: #d1d4dc;
+      text-decoration: none;
+      margin-right: 32px;
+      font-size: 13px;
+    }
+
+    .news-item:hover {
+      color: #2962ff;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="dashboard-layout">
+    <header class="app-header">
+      <div class="logo-area">
+        <span>⚡ AntTrading</span>
+        <span class="pro-badge">PRO</span>
+      </div>
+      <div class="search-bar-wrap">
+        <input type="text" id="symbolSearch" class="symbol-search" placeholder="종목 검색 (예: 삼성전자, 005930)"
+          autocomplete="off">
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <div class="header-right">
+        <a href="/dash/" style="color:#fff; text-decoration:none; font-weight:700; border-bottom:2px solid #2962ff;">시장
+          탐색기</a>
+        <a href="/trading_desk.html" style="color:#848e9c; text-decoration:none;">트레이딩 데스크</a>
+        <a href="/mbti.html" style="color:#848e9c; text-decoration:none;">MBTI 추천</a>
+        <a href="#" style="color:#848e9c; text-decoration:none;">AI 신호</a>
+        <span class="acc-val" id="aiCount">--</span>
+      </div>
+    </header>
+
+    <div class="news-ticker-wrap">
+      <div class="news-label">MARKET NEWS</div>
+      <div id="newsTicker" class="news-ticker">
+        <span style="color:#5e6673; padding:0 20px;">뉴스 데이터를 불러오는 중...</span>
+      </div>
+    </div>
+
+    <section class="hero-stats">
+      <div class="stat-card">
+        <span class="stat-label">🔥 최고 상승 (Daily)</span>
+        <span id="topRise" class="stat-value">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">💧 최고 하락 (Daily)</span>
+        <span id="topFall" class="stat-value">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">📊 거래량 1위</span>
+        <span id="topVolume" class="stat-value">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">🤖 AI 추천 종목수</span>
+        <span id="aiPickCount" class="stat-value" style="color:#00e676;">--</span>
+      </div>
+    </section>
+
+    <main class="dashboard-grid">
+      <div class="dashboard-col">
+        <div class="col-header">
+          <h2>📈 급상승 랭킹</h2>
+          <button class="refresh-btn" onclick="refreshRanks()">새로고침</button>
+        </div>
+        <div id="riseRanking" class="rank-list"></div>
+      </div>
+      <div class="dashboard-col">
+        <div class="col-header">
+          <h2>🔥 거래량 상위</h2>
+          <button class="refresh-btn" onclick="refreshRanks()">새로고침</button>
+        </div>
+        <div id="volumeRanking" class="rank-list"></div>
+      </div>
+      <div class="dashboard-col">
+        <div class="col-header">
+          <h2>⚡ 테마 / 특징주</h2>
+          <button class="refresh-btn" onclick="refreshRanks()">새로고침</button>
+        </div>
+        <div id="themeRanking" class="rank-list"></div>
+      </div>
+    </main>
+  </div>
+  <script src="/js/index_main.js?v=203"></script>
+</body>
+
+</html>

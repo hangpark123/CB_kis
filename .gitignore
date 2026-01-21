@@ -1,14 +1,22 @@
-# virtualenv / 캐시
-.venv/
-__pycache__/
-*.pyc
+# Python Virtual Environment
+venv/
+env/
+.env
 
-# OS
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE & Editor
+.vscode/
+.idea/
 .DS_Store
 
-# 비밀/로컬 데이터
-.env
+# Logs & Databases
+*.log
+*.sqlite
 *.db
-data/*.csv
 
-
+# OS Generated
+Thumbs.db

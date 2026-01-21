@@ -87,6 +87,11 @@ def root_trading():
 def trading_desk_page():
     return FileResponse(os.path.join(PUBLIC_DIR, "trading_desk.html"))
 
+@app.get("/mbti.html", include_in_schema=False)
+def mbti_page():
+    return FileResponse(os.path.join(PUBLIC_DIR, "mbti.html"))
+
+
 
 # === 차트 데이터 API ===
 @app.get("/api/trading/chart_data")
@@ -859,3 +864,138 @@ def api_revise_cancel(order_id: str, type: str, quantity: int = 0, price: int = 
     except Exception as e:
         print(f"주문 취소 오류: {e}")
         return {"status": "error", "message": str(e)}
+# MBTI Stock Recommendation API Endpoint
+@app.get("/api/mbti/recommendations")
+def api_mbti_recommendations(mbti: str):
+    """MBTI 기반 주식 추천 API"""
+    mbti = mbti.upper().strip()
+    
+    # MBTI별 투자 성향 매핑
+    traits = []
+    if 'I' in mbti: traits.append("신중한")
+    if 'E' in mbti: traits.append("활동적인")
+    if 'N' in mbti: traits.append("미래지향적")
+    if 'S' in mbti: traits.append("현실적")
+    if 'T' in mbti: traits.append("분석적")
+    if 'F' in mbti: traits.append("감성적")
+    if 'J' in mbti: traits.append("계획적")
+    if 'P' in mbti: traits.append("유연한")
+    
+    description = f"{', '.join(traits)} 투자자 ({mbti})"
+    
+    # 종목 매핑 로직
+    # 분석가형 (INTJ, INTP, ENTJ, ENTP) -> 기술주, 성장주
+    if any(t in mbti for t in ['INTJ', 'INTP', 'ENTJ', 'ENTP']):
+        rec_stocks = [
+            {"code": "005930", "name": "삼성전자", "reason": "반도체 기술의 정점, 분석적 가치 투자"},
+            {"code": "035420", "name": "NAVER", "reason": "AI 및 플랫폼 비즈니스, 미래 지향적"},
+            {"code": "373220", "name": "LG에너지솔루션", "reason": "전기차 배터리 혁신 기술"}
+        ]
+        strategy = "기술적 분석과 미래 가치에 집중하는 포트폴리오"
+        
+    # 외교관형 (INFJ, INFP, ENFJ, ENFP) -> ESG, 바이오, 엔터
+    elif any(t in mbti for t in ['INFJ', 'INFP', 'ENFJ', 'ENFP']):
+        rec_stocks = [
+            {"code": "035720", "name": "카카오", "reason": "사람을 잇는 플랫폼, 사회적 연결"},
+            {"code": "005380", "name": "현대차", "reason": "친환경 모빌리티 전환"},
+            {"code": "352820", "name": "하이브", "reason": "글로벌 팬덤 문화 선도"}
+        ]
+        strategy = "사회적 가치와 트렌드를 중시하는 투자"
+        
+    # 관리자형 (ISTJ, ISFJ, ESTJ, ESFJ) -> 배당주, 대형주
+    elif any(t in mbti for t in ['ISTJ', 'ISFJ', 'ESTJ', 'ESFJ']):
+        rec_stocks = [
+            {"code": "005930", "name": "삼성전자", "reason": "대한민국 대표 우량주, 안정성"},
+            {"code": "105560", "name": "KB금융", "reason": "안정적인 배당 수익"},
+            {"code": "000660", "name": "SK하이닉스", "reason": "확실한 실적 기반 제조 기업"}
+        ]
+        strategy = "안정적이고 예측 가능한 실적 우량주 위주"
+        
+    # 탐험가형 (ISTP, ISFP, ESTP, ESFP) -> 급등주, 테마주
+    elif any(t in mbti for t in ['ISTP', 'ISFP', 'ESTP', 'ESFP']):
+        rec_stocks = [
+            {"code": "086520", "name": "에코프로", "reason": "높은 변동성과 강력한 모멘텀"},
+            {"code": "000270", "name": "기아", "reason": "세련된 디자인과 감각적인 퍼포먼스"},
+            {"code": "042700", "name": "한미반도체", "reason": "시장 주도 섹터의 핵심 종목"}
+        ]
+        strategy = "시장의 흐름을 타는 감각적인 트레이딩"
+        
+    else:
+        # Fallback
+        rec_stocks = [
+            {"code": "005930", "name": "삼성전자", "reason": "국민 주식"},
+            {"code": "005380", "name": "현대차", "reason": "글로벌 자동차 기업"}
+        ]
+        strategy = "균형 잡힌 포트폴리오"
+
+    return {
+        "mbti": mbti,
+        "description": description,
+        "strategy": strategy,
+        "stocks": rec_stocks
+    }
+
+# Stock Detail API with DART Integration
+@app.get("/api/stock/detail/{stock_code}")
+async def get_stock_detail(stock_code: str):
+    """종목 상세 정보 조회 (DART API 활용)"""
+    
+    # Mock data for now - will integrate DART API later
+    # TODO: Integrate DART Open API for real company data
+    
+    stock_details = {
+        "code": stock_code,
+        "name": "종목명",
+        "current_price": 0,
+        "change_rate": 0,
+        "market_cap": "조회 중",
+        "volume": "0",
+        "overview": {
+            "industry": "업종 정보",
+            "ceo": "대표이사",
+            "founded": "설립일"
+        },
+        "financials": {
+            "revenue": "매출액",
+            "operating_profit": "영업이익",
+            "net_income": "순이익"
+        }
+    }
+    
+    # Map stock codes to known companies
+    companies = {
+        "005930": {"name": "삼성전자", "industry": "전기,전자", "ceo": "한종희", "founded": "1969-01-13", "market_cap": "421조원"},
+        "035420": {"name": "NAVER", "industry": "서비스업", "ceo": "최수연", "founded": "1999-06-02", "market_cap": "53조원"},
+        "373220": {"name": "LG에너지솔루션", "industry": "전기,전자", "ceo": "김동명", "founded": "2020-12-01", "market_cap": "92조원"},
+        "035720": {"name": "카카오", "industry": "서비스업", "ceo": "홍은택", "founded": "1995-02-16", "market_cap": "24조원"},
+        "005380": {"name": "현대차", "industry": "운수장비", "ceo": "장재훈", "founded": "1967-12-29", "market_cap": "42조원"},
+        "352820": {"name": "하이브", "industry": "서비스업", "ceo": "이재상", "founded": "2005-02-01", "market_cap": "8조원"},
+        "105560": {"name": "KB금융", "industry": "금융업", "ceo": "양종희", "founded": "2008-09-29", "market_cap": "26조원"},
+        "000660": {"name": "SK하이닉스", "industry": "전기,전자", "ceo": "곽노정", "founded": "1983-02-02", "market_cap": "74조원"},
+        "086520": {"name": "에코프로", "industry": "화학", "ceo": "이동채", "founded": "1998-07-03", "market_cap": "12조원"},
+        "000270": {"name": "기아", "industry": "운수장비", "ceo": "송호성", "founded": "1944-12-11", "market_cap": "31조원"},
+        "042700": {"name": "한미반도체", "industry": "전기,전자", "ceo": "곽동신", "founded": "1980-12-23", "market_cap": "4조원"},
+    }
+    
+    if stock_code in companies:
+        company = companies[stock_code]
+        stock_details["name"] = company["name"]
+        stock_details["market_cap"] = company["market_cap"]
+        stock_details["overview"]["industry"] = company["industry"]
+        stock_details["overview"]["ceo"] = company["ceo"]
+        stock_details["overview"]["founded"] = company["founded"]
+        
+        # Simulated price data
+        import random
+        stock_details["current_price"] = random.randint(50000, 80000)
+        stock_details["change_rate"] = round(random.uniform(-5, 5), 2)
+        stock_details["volume"] = random.randint(1000000, 50000000)
+        
+        # Simulated financials
+        stock_details["financials"] = {
+            "revenue": f"{random.randint(50, 300)}조원",
+            "operating_profit": f"{random.randint(5, 50)}조원",
+            "net_income": f"{random.randint(3, 40)}조원"
+        }
+    
+    return stock_details

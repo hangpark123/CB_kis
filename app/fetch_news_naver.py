@@ -1,5 +1,5 @@
 import re, html, httpx, datetime as dt, logging
-from typing import Iterable
+from typing import Iterable, Optional
 from email.utils import parsedate_to_datetime
 from .db import SessionLocal
 from .models import RawEvent
@@ -14,7 +14,7 @@ def _strip(text: str) -> str:
     text = re.sub(r"</?b>", "", text)
     return html.unescape(text)
 
-def _parse_pubdate(s: str | None):
+def _parse_pubdate(s: Optional[str]):
     if not s:
         return None
     try:
@@ -23,7 +23,7 @@ def _parse_pubdate(s: str | None):
     except Exception:
         return None
 
-def fetch_naver_news(queries: Iterable[str] | None = None) -> int:
+def fetch_naver_news(queries: Optional[Iterable[str]] = None) -> int:
     """네이버 뉴스 '작성 시각(pubDate)'을 published_at으로 저장."""
     cid, csec = settings.NAVER_CLIENT_ID, settings.NAVER_CLIENT_SECRET
     if not cid or not csec:

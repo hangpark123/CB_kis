@@ -2,7 +2,8 @@ from sqlalchemy import select
 from rapidfuzz import fuzz, process
 from .db import SessionLocal
 from .models import DimListing
-def match_stock_code(corp_name: str) -> str | None:
+from typing import Optional
+def match_stock_code(corp_name: str) -> Optional[str]:
     if not corp_name: return None
     with SessionLocal() as s:
         rows = s.execute(select(DimListing.corp_name_kr, DimListing.stock_code)).all()

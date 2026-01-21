@@ -1,0 +1,391 @@
+/* Trading Desk - Toss Style Redesign */
+@import url('/css/toss_design_system.css');
+
+/* ==================== LAYOUT ==================== */
+body {
+    overflow-y: scroll;
+    /* Allow scrolling for full page */
+    height: auto;
+    min-height: 100vh;
+}
+
+.trading-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-xxl) var(--spacing-lg);
+    display: grid;
+    grid-template-columns: 2.5fr 1fr;
+    /* 70% 30% split */
+    gap: var(--spacing-xxl);
+    align-items: start;
+}
+
+/* Left Column - Main Content */
+.main-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+/* Right Column - Sticky Order Panel */
+.side-column {
+    position: sticky;
+    top: 90px;
+    /* Header height + spacing */
+}
+
+/* ==================== STOCK HEADER ==================== */
+.stock-header-section {
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.sh-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.sh-name {
+    font-size: 28px;
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+}
+
+.sh-code {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+    font-weight: var(--weight-medium);
+}
+
+.sh-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: var(--weight-bold);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+
+.sh-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-md);
+}
+
+.sh-price {
+    font-size: 40px;
+    font-weight: var(--weight-bold);
+    letter-spacing: -0.5px;
+}
+
+.sh-change {
+    font-size: 20px;
+    font-weight: var(--weight-semibold);
+}
+
+.sh-price.up {
+    color: var(--success);
+}
+
+.sh-price.down {
+    color: var(--error);
+}
+
+.sh-change.up {
+    color: var(--success);
+}
+
+.sh-change.down {
+    color: var(--error);
+}
+
+/* ==================== TABS ==================== */
+.nav-tabs {
+    display: flex;
+    gap: var(--spacing-xxl);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--spacing-lg);
+}
+
+.nav-tab {
+    padding: var(--spacing-md) 0;
+    font-size: var(--text-md);
+    font-weight: var(--weight-medium);
+    color: var(--text-secondary);
+    cursor: pointer;
+    position: relative;
+}
+
+.nav-tab.active {
+    color: var(--text-primary);
+    font-weight: var(--weight-bold);
+}
+
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--text-primary);
+}
+
+/* ==================== CHART AREA ==================== */
+.chart-wrapper {
+    height: 500px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    /* No border to blend in */
+}
+
+/* ==================== ORDER PANEL ==================== */
+.order-panel {
+    background: var(--bg-primary);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border-light);
+}
+
+/* Toggle Switch (Buy/Sell) */
+.trade-toggle {
+    display: flex;
+    background: var(--bg-secondary);
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+.toggle-option {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 15px;
+    font-weight: var(--weight-semibold);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.toggle-option.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-option.buy.active {
+    color: var(--success);
+}
+
+/* Red */
+.toggle-option.sell.active {
+    color: var(--error);
+}
+
+/* Blue */
+
+/* Inputs */
+.input-group {
+    margin-bottom: 16px;
+}
+
+.input-label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-weight: var(--weight-medium);
+}
+
+.toss-input {
+    width: 100%;
+    height: 54px;
+    /* Large input */
+    padding: 0 16px;
+    background: var(--bg-secondary);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    text-align: right;
+    transition: all 0.2s;
+}
+
+.toss-input:focus {
+    outline: none;
+    background: var(--bg-primary);
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 2px var(--primary-50);
+}
+
+/* Percentage Buttons */
+.pct-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.pct-btn {
+    padding: 8px 0;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.pct-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Order Summary */
+.order-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.summary-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.summary-value {
+    font-size: 18px;
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+}
+
+/* Action Button */
+.btn-action {
+    width: 100%;
+    height: 56px;
+    border-radius: 16px;
+    font-size: 18px;
+    font-weight: var(--weight-bold);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.btn-action:active {
+    transform: scale(0.98);
+}
+
+.btn-action.buy {
+    background-color: var(--success);
+}
+
+/* Red */
+.btn-action.sell {
+    background-color: var(--error);
+}
+
+/* Blue */
+
+/* ==================== SUB WIDGETS ==================== */
+.widget-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
+}
+
+.widget-card {
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+    height: 300px;
+    /* Temp height */
+}
+
+/* Hoga (Order Book) Style */
+.hoga-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.hoga-row {
+    height: 32px;
+    font-size: 13px;
+}
+
+.hoga-price {
+    font-weight: var(--weight-bold);
+    text-align: center;
+    width: 33%;
+}
+
+.hoga-qty {
+    width: 33%;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    position: relative;
+}
+
+.hoga-bar {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    opacity: 0.15;
+    border-radius: 2px;
+    z-index: 0;
+}
+
+/* Ask (Sell side) - Down/Blue in Toss logic */
+.hoga-row.ask .hoga-price {
+    color: var(--error);
+}
+
+/* Blue */
+.hoga-row.ask .hoga-bar {
+    background: var(--error);
+    right: 0;
+}
+
+.hoga-row.ask .hoga-qty {
+    text-align: right;
+    padding-right: 8px;
+}
+
+/* Bid (Buy side) - Up/Red in Toss logic */
+.hoga-row.bid .hoga-price {
+    color: var(--success);
+}
+
+/* Red */
+.hoga-row.bid .hoga-bar {
+    background: var(--success);
+    left: 0;
+}
+
+.hoga-row.bid .hoga-qty {
+    text-align: left;
+    padding-left: 8px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .trading-container {
+        grid-template-columns: 1fr;
+    }
+
+    .side-column {
+        position: static;
+    }
+}

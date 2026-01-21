@@ -15,40 +15,58 @@ let portfolioData = []; // 포트폴리오 저장
 // === INITIALIZATION ===
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. URL 파라미터 확인
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const name = urlParams.get('name');
-    const exchange = urlParams.get('exchange') || 'KRX';
+    console.log('[Init] TradingView Main JS Loaded');
 
-    loadWatchlist();
-    loadAIPicks();
+    try {
+        // 1. URL 파라미터 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const name = urlParams.get('name');
+        const exchange = urlParams.get('exchange') || 'KRX';
+        console.log('[Init] Params:', { code, name, exchange });
 
-    // 2. 잔고/포트폴리오 순차 로드
-    await refreshAccountInfo();
-    await new Promise(r => setTimeout(r, 500));
-    await loadPortfolio();
+        loadWatchlist();
+        loadAIPicks();
 
-    // 3. 종목 선택
-    if (code && name) {
-        selectStock(code, name, exchange);
-    } else {
-        selectStock('005930', '삼성전자', 'KRX');
-    }
+        // 2. 잔고/포트폴리오 순차 로드 (Fail-safe)
+        try {
+            await refreshAccountInfo();
+        } catch (e) {
+            console.error('[Init] Account info load failed:', e);
+        }
 
-    // 4. 이벤트 리스너 설정
-    setupSearch();
-    setupTabs(); // 탭 기능 설정
+        // 500ms 딜레이 제거하고 병렬 처리 건너뜀 (속도 개선)
+        try {
+            loadPortfolio();
+        } catch (e) {
+            console.error('[Init] Portfolio load failed:', e);
+        }
 
-    // Auto-refresh (30초)
-    setInterval(async () => {
-        await refreshAccountInfo();
-    }, 30000);
+        // 3. 종목 선택
+        if (code && name) {
+            console.log('[Init] Selecting stock from URL');
+            selectStock(code, name, exchange);
+        } else {
+            console.log('[Init] Selecting default stock');
+            selectStock('005930', '삼성전자', 'KRX');
+        }
 
-    // Sidebar '보유잔고' 버튼 동작 강화
-    const sidebarBtns = document.querySelectorAll('.sidebar-left .tab-btn');
-    if (sidebarBtns.length > 1) { // 0: 관심종목, 1: 보유잔고
-        sidebarBtns[1].addEventListener('click', () => loadPortfolio());
+        // 4. 이벤트 리스너 설정
+        setupSearch();
+        setupTabs(); // 탭 기능 설정
+
+        // Auto-refresh (30초)
+        setInterval(async () => {
+            await refreshAccountInfo();
+        }, 30000);
+
+        // Sidebar '보유잔고' 버튼 동작 강화
+        const sidebarBtns = document.querySelectorAll('.sidebar-left .tab-btn');
+        if (sidebarBtns.length > 1) { // 0: 관심종목, 1: 보유잔고
+            sidebarBtns[1].addEventListener('click', () => loadPortfolio());
+        }
+    } catch (err) {
+        console.error('[Init] Critical initialization error:', err);
     }
 });
 
@@ -263,6 +281,9 @@ async function fetchCurrentPrice(code, exchange) {
                 const changeElem = document.getElementById('priceChange');
                 changeElem.textContent = (changeRate > 0 ? '+' : '') + changeRate + '%';
                 changeElem.style.color = changeRate >= 0 ? '#00e676' : '#ff3b69';
+
+                // 호가창 업데이트
+                updateOrderBook(data.current_price);
             }
         }
     } catch (e) {
@@ -481,6 +502,8 @@ function loadWatchlist() {
     ];
 
     const container = document.getElementById('watchlist');
+    if (!container) return; // Grid layout compatibility check
+
     container.innerHTML = watchlist.map(stock => `
         <div class="watch-item" onclick="selectStock('${stock.code}', '${stock.name}', '${stock.exchange}')">
             <div class="item-row">
@@ -701,27 +724,73 @@ function switchBottomTab(tab) {
 function setOrderType(type) {
     currentOrderType = type;
 
-    // 1. Tab Active 처리
-    document.querySelectorAll('.trade-tab').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.trim() === type) {
-            btn.classList.add('active');
+    // 1. Tab Active 처리 (New UI)
+    const tabBuy = document.getElementById('tabBuy');
+    const tabSell = document.getElementById('tabSell');
+
+    if (tabBuy && tabSell) {
+        if (type === 'BUY') {
+            tabBuy.className = 'toggle-option buy active';
+            tabSell.className = 'toggle-option sell';
+        } else {
+            tabBuy.className = 'toggle-option buy';
+            tabSell.className = 'toggle-option sell active';
         }
-    });
+    }
 
     // 2. 실행 버튼 스타일 변경
     const execBtn = document.getElementById('btnExecute');
-    execBtn.classList.remove('buy', 'sell');
-    execBtn.classList.add(type === 'BUY' ? 'buy' : 'sell');
-
-    const action = type === 'BUY' ? '매수' : '매도';
-    execBtn.textContent = `${selectedStock.name} ${action}`;
-
-    // 3. 현금/미수 토글 UI 표시 여부 (매수일 때만 표시)
-    const toggleBox = document.querySelector('.margin-toggle-box');
-    if (toggleBox) {
-        toggleBox.style.display = (type === 'BUY') ? 'flex' : 'none';
+    if (execBtn) {
+        execBtn.className = type === 'BUY' ? 'btn-action buy' : 'btn-action sell';
+        const action = type === 'BUY' ? '매수하기' : '매도하기';
+        execBtn.textContent = action;
     }
+
+    // 3. 현금/미수 토글 UI 표시 여부 (New UI에서는 일단 숨김 처리하거나 로직 유지)
+    // Toss 스타일에서는 명시적인 미수 토글이 잘 안보이므로, 필요하면 추가 구현
+}
+
+// 호가창 업데이트 (Mock)
+function updateOrderBook(currentPrice) {
+    const obAsks = document.getElementById('obAsks');
+    const obBids = document.getElementById('obBids');
+    if (!obAsks || !obBids) return;
+
+    if (!currentPrice) currentPrice = 70000;
+
+    // Asks (매도호가) - 위로 갈수록 가격 높음. 아래에서 위로 렌더링 (역순)
+    let asksHtml = '';
+    for (let i = 5; i > 0; i--) {
+        const p = currentPrice + (i * 100);
+        const q = Math.floor(Math.random() * 5000) + 100;
+        const barWidth = Math.floor(Math.random() * 80) + 10;
+        asksHtml += `
+        <tr class="hoga-row ask">
+            <td class="hoga-price">${p.toLocaleString()}</td>
+            <td class="hoga-qty">
+                <div class="hoga-bar" style="width:${barWidth}%"></div>
+                ${q.toLocaleString()}
+            </td>
+        </tr>`;
+    }
+    obAsks.innerHTML = asksHtml;
+
+    // Bids (매수호가) - 아래로 갈수록 가격 낮음
+    let bidsHtml = '';
+    for (let i = 0; i < 5; i++) {
+        const p = currentPrice - (i * 100);
+        const q = Math.floor(Math.random() * 5000) + 100;
+        const barWidth = Math.floor(Math.random() * 80) + 10;
+        bidsHtml += `
+        <tr class="hoga-row bid">
+            <td class="hoga-price">${p.toLocaleString()}</td>
+            <td class="hoga-qty">
+                <div class="hoga-bar" style="width:${barWidth}%"></div>
+                ${q.toLocaleString()}
+            </td>
+        </tr>`;
+    }
+    obBids.innerHTML = bidsHtml;
 }
 
 // 퍼센트 주식 수 계산

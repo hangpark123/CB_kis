@@ -1,3 +1,4 @@
+from typing import List
 """
 MCP (Model Context Protocol) 서버
 
@@ -28,7 +29,7 @@ server = Server("cb-trading-server")
 
 
 @server.list_tools()
-async def list_tools() -> list[Tool]:
+async def list_tools() -> List[Tool]:
     """사용 가능한 도구 목록 반환"""
     return [
         Tool(
@@ -199,7 +200,7 @@ async def list_tools() -> list[Tool]:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict) -> List[TextContent]:
     """도구 실행"""
     
     try:

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBTI 주식 추천 | AntTrading Pro</title>
+    <link rel="stylesheet" href="/css/mbti_style.css">
+    <link rel="stylesheet" href="/css/stock_modal.css">
+</head>
+
+<body>
+    <div class="mbti-container">
+        <!-- Header -->
+        <header class="mbti-header">
+            <div class="mbti-header-content">
+                <a href="/dash/" class="mbti-logo">
+                    Ant<span>Trading</span>
+                </a>
+                <button onclick="window.location.href='/dash/'" class="back-btn">
+                    ← 대시보드
+                </button>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <h1 class="hero-title">
+                당신의 MBTI에 맞는<br>주식을 찾아보세요
+            </h1>
+            <p class="hero-subtitle">
+                AI가 분석한 16가지 성향별 맞춤 포트폴리오
+            </p>
+
+            <form class="mbti-input-form" onsubmit="handleSubmit(event)">
+                <input type="text" id="mbtiInput" class="mbti-input" placeholder="ENTJ" maxlength="4"
+                    pattern="[a-zA-Z]{4}" required>
+                <button type="submit" class="btn-primary" id="submitBtn">
+                    추천 받기
+                </button>
+            </form>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>AI가 분석 중입니다...</p>
+            </div>
+
+            <div id="error" class="error-message" style="display: none;"></div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results" class="results-section">
+            <div class="result-header">
+                <h2 class="mbti-type" id="mbtiType"></h2>
+                <p class="mbti-description" id="mbtiDescription"></p>
+                <div class="strategy-card">
+                    <p class="strategy-text" id="mbtiStrategy"></p>
+                </div>
+            </div>
+
+            <div class="stock-grid" id="stockGrid">
+                <!-- Stock cards will be inserted here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Stock Detail Modal -->
+    <div id="stockModalOverlay" class="stock-modal-overlay" onclick="closeStockModal()"></div>
+    <div id="stockModal" class="stock-modal">
+        <div class="modal-drag-handle"></div>
+        <button class="modal-close" onclick="closeStockModal()"></button>
+
+        <div class="modal-header">
+            <div class="modal-stock-name" id="modalStockName">종목명</div>
+            <div class="modal-stock-code" id="modalStockCode">000000</div>
+            <div class="modal-price-info">
+                <div class="modal-current-price" id="modalCurrentPrice">-</div>
+                <div class="modal-change" id="modalChange">-</div>
+            </div>
+        </div>
+
+        <div class="modal-tabs">
+            <button class="modal-tab active" data-tab="overview" onclick="switchModalTab('overview')">개요</button>
+            <button class="modal-tab" data-tab="financials" onclick="switchModalTab('financials')">재무</button>
+            <button class="modal-tab" data-tab="company" onclick="switchModalTab('company')">기업정보</button>
+        </div>
+
+        <div class="modal-content">
+            <div id="modalLoading" class="modal-loading" style="display: none;">
+                <div class="modal-spinner"></div>
+                <p>정보를 불러오는 중...</p>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overviewTab" class="modal-tab-content active">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">시가총액</div>
+                        <div class="info-value" id="modalMarketCap">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">거래량</div>
+                        <div class="info-value" id="modalVolume">-</div>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <h3 class="modal-section-title">기본 정보</h3>
+                    <div class="modal-row">
+                        <span class="modal-row-label">업종</span>
+                        <span class="modal-row-value" id="modalIndustry">-</span>
+                    </div>
+                    <div class="modal-row">
+                        <span class="modal-row-label">대표이사</span>
+                        <span class="modal-row-value" id="modalCEO">-</span>
+                    </div>
+                    <div class="modal-row">
+                        <span class="modal-row-label">설립일</span>
+                        <span class="modal-row-value" id="modalFounded">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financials Tab -->
+            <div id="financialsTab" class="modal-tab-content">
+                <div class="modal-section">
+                    <h3 class="modal-section-title">재무 정보</h3>
+                    <div class="modal-row">
+                        <span class="modal-row-label">매출액</span>
+                        <span class="modal-row-value" id="modalRevenue">-</span>
+                    </div>
+                    <div class="modal-row">
+                        <span class="modal-row-label">영업이익</span>
+                        <span class="modal-row-value" id="modalOperatingProfit">-</span>
+                    </div>
+                    <div class="modal-row">
+                        <span class="modal-row-label">순이익</span>
+                        <span class="modal-row-value" id="modalNetIncome">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Company Tab -->
+            <div id="companyTab" class="modal-tab-content">
+                <div class="modal-section">
+                    <h3 class="modal-section-title">기업 개요</h3>
+                    <p>준비 중입니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/stock_modal.js"></script>
+    <script src="/js/mbti.js"></script>
+</body>
+
+</html>
